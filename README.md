@@ -196,7 +196,8 @@ The `--orientation` flag switches between landscape (160x80, default) and portra
 
 ### Spotify Now Playing (macOS)
 
-Display the currently playing Spotify track:
+Display the currently playing Spotify track. The title/artist lines automatically truncate
+to the current display width (including large-screen auto-fit):
 
 ```bash
 # Show once

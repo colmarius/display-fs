@@ -13,7 +13,7 @@ pub use image::{
     calculate_max_lines_oriented, create_blank_image_for_display, create_text_image,
     create_text_image_for_display, create_text_image_oriented, image_to_rgb565_bytes,
     image_to_rgb565_bytes_for_display, image_to_rgb565_bytes_oriented, measure_text_with_font_size,
-    Orientation, DISPLAY_HEIGHT, DISPLAY_WIDTH,
+    Orientation, DISPLAY_HEIGHT, DISPLAY_WIDTH, MAX_FONT_SIZE, MIN_FONT_SIZE,
 };
 pub use port::{
     find_display_port, is_display_connected, open_connection, DisplayConfig, DisplayModel,
