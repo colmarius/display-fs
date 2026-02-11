@@ -1,9 +1,10 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use display_fs::{
-    calculate_auto_fit_size_for_display, create_text_image_for_display, find_display_port,
-    get_now_playing, image_to_rgb565_bytes_for_display, is_display_connected, open_connection,
+    calculate_auto_fit_size_for_display, calculate_max_chars_per_line_for_display,
+    create_text_image_for_display, find_display_port, get_now_playing,
+    image_to_rgb565_bytes_for_display, is_display_connected, open_connection,
     send_image_to_display_for_model, split_into_pages_for_display, DisplayConfig, DisplayModel,
-    Orientation,
+    Orientation, MIN_FONT_SIZE,
 };
 use std::process::{Command, ExitCode};
 use std::thread;
@@ -453,28 +454,18 @@ fn run_spotify(args: SpotifyArgs) -> ExitCode {
     let interval = Duration::from_secs_f32(args.display.effective_delay());
 
     loop {
-        let text = match get_now_playing() {
-            Some(np) if np.is_playing => {
-                format!(
-                    "♪ {}\nby {}",
-                    truncate(&np.track, 18),
-                    truncate(&np.artist, 18)
-                )
-            }
-            Some(np) => {
-                format!(
-                    "|| {}\nby {}",
-                    truncate(&np.track, 18),
-                    truncate(&np.artist, 18)
-                )
-            }
-            None => "Spotify not running".to_string(),
-        };
-
-        let current = get_now_playing().map(|np| (np.track, np.artist));
+        let now_playing = get_now_playing();
+        let current = now_playing
+            .as_ref()
+            .map(|np| (np.track.clone(), np.artist.clone()));
         let should_update = current != last_track;
 
         if should_update {
+            let max_line_len = spotify_max_line_len(&args.display, orientation, display_config);
+            let text = match now_playing {
+                Some(np) => format_spotify_text(&np.track, &np.artist, np.is_playing, max_line_len),
+                None => "Spotify not running".to_string(),
+            };
             let font_size = if args.display.auto {
                 let size = calculate_auto_fit_size_for_display(
                     &text,
@@ -525,12 +516,57 @@ fn run_spotify(args: SpotifyArgs) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn truncate(s: &str, max_len: usize) -> String {
-    if s.chars().count() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", s.chars().take(max_len - 3).collect::<String>())
+fn spotify_max_line_len(
+    display: &DisplayOptions,
+    orientation: Orientation,
+    config: DisplayConfig,
+) -> usize {
+    if display.auto {
+        return calculate_max_chars_per_line_for_display(
+            MIN_FONT_SIZE,
+            orientation,
+            config.width as u32,
+            config.height as u32,
+        );
     }
+
+    calculate_max_chars_per_line_for_display(
+        display.font_size,
+        orientation,
+        config.width as u32,
+        config.height as u32,
+    )
+}
+
+fn format_spotify_text(track: &str, artist: &str, is_playing: bool, max_len: usize) -> String {
+    let prefix = if is_playing { "♪" } else { "||" };
+    let prefix_len = prefix.chars().count();
+    let track_line = format!(
+        "{} {}",
+        prefix,
+        trim_to_width(track, max_len.saturating_sub(prefix_len + 1))
+    );
+    let artist_line = format!("by {}", trim_to_width(artist, max_len.saturating_sub(3)));
+
+    format!("{}\n{}", track_line, artist_line)
+}
+
+fn trim_to_width(text: &str, max_len: usize) -> String {
+    if max_len == 0 {
+        return String::new();
+    }
+
+    let text_len = text.chars().count();
+    if text_len <= max_len {
+        return text.to_string();
+    }
+
+    if max_len <= 3 {
+        return text.chars().take(max_len).collect();
+    }
+
+    let truncated: String = text.chars().take(max_len - 3).collect();
+    format!("{}...", truncated)
 }
 
 fn detect_display() -> ExitCode {

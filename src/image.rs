@@ -195,8 +195,8 @@ pub fn measure_multiline_text(text: &str, font_size: f32) -> (u32, u32) {
     (max_width, total_height)
 }
 
-const MIN_FONT_SIZE: f32 = 8.0;
-const MAX_FONT_SIZE: f32 = 72.0;
+pub const MIN_FONT_SIZE: f32 = 8.0;
+pub const MAX_FONT_SIZE: f32 = 72.0;
 const HORIZONTAL_PADDING: u32 = 8;
 const VERTICAL_PADDING: u32 = 4;
 

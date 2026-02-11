@@ -3,6 +3,7 @@
 ## Overview
 
 Standalone CLI application to interact with the Display FS V1 family (0.96 inch + 3.5 inch), detect if it's connected, and display content.
+Spotify now-playing output is width-aware on both display sizes.
 
 ## Hardware
 
