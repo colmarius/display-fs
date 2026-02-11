@@ -14,6 +14,10 @@ pub enum Orientation {
     Landscape,
     /// 80x160 - taller than wide
     Portrait,
+    /// 160x80 - wider than tall, flipped 180°
+    LandscapeFlip,
+    /// 80x160 - taller than wide, flipped 180°
+    PortraitFlip,
 }
 
 impl Orientation {
@@ -22,6 +26,8 @@ impl Orientation {
         match self {
             Orientation::Landscape => PHYSICAL_HEIGHT, // 160
             Orientation::Portrait => PHYSICAL_WIDTH,   // 80
+            Orientation::LandscapeFlip => PHYSICAL_HEIGHT,
+            Orientation::PortraitFlip => PHYSICAL_WIDTH,
         }
     }
 
@@ -30,6 +36,8 @@ impl Orientation {
         match self {
             Orientation::Landscape => PHYSICAL_WIDTH, // 80
             Orientation::Portrait => PHYSICAL_HEIGHT, // 160
+            Orientation::LandscapeFlip => PHYSICAL_WIDTH,
+            Orientation::PortraitFlip => PHYSICAL_HEIGHT,
         }
     }
 }
@@ -252,6 +260,30 @@ pub fn image_to_rgb565_bytes_oriented(img: &RgbImage, orientation: Orientation) 
                 }
             }
         }
+        Orientation::PortraitFlip => {
+            // Portrait flip: rotate 180° (80x160)
+            for py in 0..PHYSICAL_HEIGHT {
+                for px in 0..PHYSICAL_WIDTH {
+                    let lx = (PHYSICAL_WIDTH - 1) - px; // 79 - px
+                    let ly = (PHYSICAL_HEIGHT - 1) - py; // 159 - py
+                    let pixel = img.get_pixel(lx, ly);
+                    push_rgb565(&mut data, pixel[0], pixel[1], pixel[2]);
+                }
+            }
+        }
+        Orientation::LandscapeFlip => {
+            // Landscape flip: rotate 90° CCW to get 180° from landscape orientation
+            // Input is 160w x 80h, output is 80w x 160h
+            // Maps to logical: lx = 159 - py, ly = px
+            for py in 0..PHYSICAL_HEIGHT {
+                for px in 0..PHYSICAL_WIDTH {
+                    let lx = (PHYSICAL_HEIGHT - 1) - py; // 159 - py
+                    let ly = px;
+                    let pixel = img.get_pixel(lx, ly);
+                    push_rgb565(&mut data, pixel[0], pixel[1], pixel[2]);
+                }
+            }
+        }
     }
 
     data
@@ -365,6 +397,14 @@ mod tests {
         // Portrait: 80x160
         assert_eq!(Orientation::Portrait.width(), 80);
         assert_eq!(Orientation::Portrait.height(), 160);
+
+        // Landscape flip: 160x80
+        assert_eq!(Orientation::LandscapeFlip.width(), 160);
+        assert_eq!(Orientation::LandscapeFlip.height(), 80);
+
+        // Portrait flip: 80x160
+        assert_eq!(Orientation::PortraitFlip.width(), 80);
+        assert_eq!(Orientation::PortraitFlip.height(), 160);
     }
 
     #[test]

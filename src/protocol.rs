@@ -53,10 +53,13 @@ pub fn send_image_to_display(
 
 /// Create orientation command to initialize display orientation
 fn create_orientation_command(orientation: Orientation) -> [u8; 3] {
-    // Orientation values: 0=portrait, 1=landscape, 2=portrait_flip, 3=landscape_flip
+    // Orientation values: 0=portrait, 1=landscape
+    // Flip variants are handled in image data rotation to avoid device quirks.
     let orientation_value = match orientation {
         Orientation::Portrait => 0,
         Orientation::Landscape => 1,
+        Orientation::PortraitFlip => 0,
+        Orientation::LandscapeFlip => 1,
     };
     [CMD_SET_ORIENTATION, orientation_value, CMD_END]
 }
@@ -108,7 +111,12 @@ mod tests {
     #[test]
     fn test_bitmap_header_always_physical_dimensions() {
         // Both orientations use physical 80x160 dimensions
-        for orientation in [Orientation::Landscape, Orientation::Portrait] {
+        for orientation in [
+            Orientation::Landscape,
+            Orientation::Portrait,
+            Orientation::LandscapeFlip,
+            Orientation::PortraitFlip,
+        ] {
             let header = create_bitmap_header_oriented(orientation);
             // x0 = 0, y0 = 0
             assert_eq!(header[1], 0x00); // x0 low
@@ -127,6 +135,14 @@ mod tests {
     fn test_command_constants() {
         assert_eq!(CMD_SET_BITMAP, 0x05);
         assert_eq!(CMD_END, 0x0A);
+    }
+
+    #[test]
+    fn test_orientation_command_values() {
+        assert_eq!(create_orientation_command(Orientation::Portrait)[1], 0);
+        assert_eq!(create_orientation_command(Orientation::Landscape)[1], 1);
+        assert_eq!(create_orientation_command(Orientation::PortraitFlip)[1], 0);
+        assert_eq!(create_orientation_command(Orientation::LandscapeFlip)[1], 1);
     }
 
     #[test]
