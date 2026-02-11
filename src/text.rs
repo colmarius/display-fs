@@ -1,5 +1,8 @@
-use crate::image::{calculate_max_chars_per_line, calculate_max_lines, DISPLAY_WIDTH};
-use crate::measure_text_with_font_size;
+use crate::image::{
+    calculate_max_chars_per_line, calculate_max_chars_per_line_for_display, calculate_max_lines,
+    calculate_max_lines_for_display, DISPLAY_WIDTH,
+};
+use crate::{measure_text_with_font_size, Orientation};
 
 /// Split text into pages that fit on the display.
 /// Uses word-aware splitting (never breaks mid-word).
@@ -11,6 +14,36 @@ pub fn split_into_pages(text: &str, font_size: f32) -> Vec<String> {
     }
 
     let lines = wrap_text(text, font_size);
+
+    if lines.is_empty() {
+        return vec![];
+    }
+
+    lines
+        .chunks(max_lines)
+        .map(|chunk| chunk.join("\n"))
+        .collect()
+}
+
+pub fn split_into_pages_for_display(
+    text: &str,
+    font_size: f32,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> Vec<String> {
+    let max_lines = calculate_max_lines_for_display(
+        font_size,
+        orientation,
+        physical_width,
+        physical_height,
+    );
+
+    if max_lines == 0 {
+        return vec![];
+    }
+
+    let lines = wrap_text_for_display(text, font_size, orientation, physical_width, physical_height);
 
     if lines.is_empty() {
         return vec![];
@@ -84,10 +117,103 @@ fn wrap_text(text: &str, font_size: f32) -> Vec<String> {
     result
 }
 
+fn wrap_text_for_display(
+    text: &str,
+    font_size: f32,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> Vec<String> {
+    if text.is_empty() {
+        return Vec::new();
+    }
+
+    let mut result = Vec::new();
+    let max_chars = calculate_max_chars_per_line_for_display(
+        font_size,
+        orientation,
+        physical_width,
+        physical_height,
+    );
+
+    for paragraph in text.split('\n') {
+        if paragraph.is_empty() {
+            result.push(String::new());
+            continue;
+        }
+
+        let words: Vec<&str> = paragraph.split_whitespace().collect();
+        if words.is_empty() {
+            result.push(String::new());
+            continue;
+        }
+
+        let mut current_line = String::new();
+
+        for word in words {
+            if current_line.is_empty() {
+                if fits_in_width_for_display(word, font_size, orientation, physical_width, physical_height) {
+                    current_line = word.to_string();
+                } else {
+                    current_line = truncate_to_fit_for_display(
+                        word,
+                        font_size,
+                        max_chars,
+                        orientation,
+                        physical_width,
+                        physical_height,
+                    );
+                    result.push(current_line);
+                    current_line = String::new();
+                }
+            } else {
+                let test_line = format!("{} {}", current_line, word);
+                if fits_in_width_for_display(&test_line, font_size, orientation, physical_width, physical_height) {
+                    current_line = test_line;
+                } else {
+                    result.push(current_line);
+                    if fits_in_width_for_display(word, font_size, orientation, physical_width, physical_height) {
+                        current_line = word.to_string();
+                    } else {
+                        current_line = truncate_to_fit_for_display(
+                            word,
+                            font_size,
+                            max_chars,
+                            orientation,
+                            physical_width,
+                            physical_height,
+                        );
+                        result.push(current_line);
+                        current_line = String::new();
+                    }
+                }
+            }
+        }
+
+        if !current_line.is_empty() {
+            result.push(current_line);
+        }
+    }
+
+    result
+}
+
 /// Check if text fits within display width
 fn fits_in_width(text: &str, font_size: f32) -> bool {
     let (width, _) = measure_text_with_font_size(text, font_size);
     width <= DISPLAY_WIDTH
+}
+
+fn fits_in_width_for_display(
+    text: &str,
+    font_size: f32,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> bool {
+    let (width, _) = measure_text_with_font_size(text, font_size);
+    let (max_width, _) = orientation.dimensions_for_display(physical_width, physical_height);
+    width <= max_width
 }
 
 /// Truncate word to fit within display width
@@ -96,6 +222,32 @@ fn truncate_to_fit(word: &str, font_size: f32, max_chars: usize) -> String {
     let limit = max_chars.min(word.len());
 
     while !result.is_empty() && !fits_in_width(&result, font_size) {
+        result = result.chars().take(limit.saturating_sub(1)).collect();
+    }
+
+    result
+}
+
+fn truncate_to_fit_for_display(
+    word: &str,
+    font_size: f32,
+    max_chars: usize,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> String {
+    let mut result = word.to_string();
+    let limit = max_chars.min(word.len());
+
+    while !result.is_empty()
+        && !fits_in_width_for_display(
+            &result,
+            font_size,
+            orientation,
+            physical_width,
+            physical_height,
+        )
+    {
         result = result.chars().take(limit.saturating_sub(1)).collect();
     }
 

@@ -180,10 +180,34 @@ h1 {
   align-items: center;
 }
 
+.screen-inner span:last-child {
+  font-size: 1.1rem;
+  letter-spacing: 0.22em;
+}
+
 .spec-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(120px, 1fr));
   gap: 14px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-row span {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f7f1ea;
+  border: 1px solid #eadfd3;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .label {
@@ -237,6 +261,12 @@ main {
   padding: 22px;
   border-radius: 16px;
   box-shadow: 0 12px 32px rgba(15, 12, 6, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(15, 12, 6, 0.14);
 }
 
 .card h3 {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Display FS V1 — Tiny USB Status Display</title>
+    <title>Display FS V1 — Dual-Size USB Status Display</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -18,40 +18,47 @@
       </nav>
       <div class="hero-content">
         <div class="hero-text">
-          <p class="eyebrow">USB status display, 80×160 pixels</p>
-          <h1>Small screen. Serious signal.</h1>
+          <p class="eyebrow">USB status display, 80×160 and 320×480</p>
+          <h1>One CLI. Two screen sizes.</h1>
           <p class="lede">
-            Display FS V1 is a tiny USB-C IPS display. This CLI talks to it directly over serial so you can
-            push crisp text, status, and now-playing info from your terminal.
+            Display FS V1 now covers both the 0.96" and 3.5" WeAct Studio panels. The CLI talks directly
+            over USB CDC/serial so you can push crisp text, status dashboards, and now-playing info from
+            your terminal.
           </p>
           <div class="hero-actions">
             <a class="btn primary" href="#getting-started">Get Started</a>
             <a class="btn ghost" href="https://github.com/colmarius/display-fs/releases">Download</a>
           </div>
         </div>
-        <div class="hero-card">
-          <div class="screen">
-            <div class="screen-inner">
-              <span>DISPLAY FS</span>
-              <span>READY</span>
+          <div class="hero-card">
+            <div class="screen">
+              <div class="screen-inner">
+                <span>DISPLAY FS</span>
+                <span>READY</span>
+              </div>
             </div>
-          </div>
-          <div class="spec-grid">
-            <div>
-              <p class="label">Resolution</p>
-              <p class="value">160×80</p>
+            <div class="chip-row">
+              <span>0.96" USB-C</span>
+              <span>3.5" USB CDC</span>
+              <span>RGB565</span>
             </div>
-            <div>
-              <p class="label">Panel</p>
-              <p class="value">0.96" IPS</p>
-            </div>
-            <div>
-              <p class="label">Connection</p>
-              <p class="value">USB-C</p>
-            </div>
-            <div>
-              <p class="label">Protocol</p>
-              <p class="value">Serial</p>
+            <div class="spec-grid">
+              <div>
+                <p class="label">Resolutions</p>
+                <p class="value">160×80 + 320×480</p>
+              </div>
+              <div>
+                <p class="label">Panels</p>
+                <p class="value">0.96" + 3.5" IPS</p>
+              </div>
+              <div>
+                <p class="label">Connection</p>
+                <p class="value">USB-C / USB CDC</p>
+              </div>
+              <div>
+                <p class="label">Protocol</p>
+                <p class="value">USB CDC + RGB565</p>
+              </div>
             </div>
           </div>
         </div>
@@ -62,7 +69,7 @@
       <section class="section" id="getting-started">
         <div class="section-header">
           <h2>Get started in 30 seconds</h2>
-          <p>Detect the display, push text, flip orientation, and loop updates.</p>
+          <p>Detect the display, push text, flip orientation, and loop updates on either size.</p>
         </div>
         <div class="grid two">
           <div class="card">
@@ -72,10 +79,17 @@ just build
 ./display-fs show "Hello"</code></pre>
           </div>
           <div class="card">
-            <h3>Useful commands</h3>
+            <h3>0.96" quick hits</h3>
             <pre><code>./display-fs show --auto "Status OK"
 ./display-fs show --detect
 ./display-fs preset clock --loop</code></pre>
+          </div>
+          <div class="card">
+            <h3>3.5" examples</h3>
+            <pre><code>./display-fs show --model large \
+  --baud-rate 1152000 --auto "Studio"
+./display-fs spotify --model large \
+  --baud-rate 1152000 --loop</code></pre>
           </div>
           <div class="card">
             <h3>Japanese/CJK</h3>
@@ -83,26 +97,33 @@ just build
 just install-jp
 ./display-fs show "東京"</code></pre>
           </div>
+          <div class="card">
+            <h3>Orientation + flip</h3>
+            <pre><code>./display-fs show --orientation portrait \
+  --flip "Tall text"
+./display-fs show --model large \
+  --orientation landscape</code></pre>
+          </div>
         </div>
       </section>
 
       <section class="section" id="hardware">
         <div class="section-header">
           <h2>Hardware notes</h2>
-          <p>WeAct Studio Display FS V1 (0.96") — USB 2.0 Full Speed CDC device.</p>
+          <p>Both Display FS V1 panels use USB 2.0 Full Speed CDC and RGB565.</p>
         </div>
         <div class="grid three">
           <div class="card">
-            <h3>Resolution</h3>
-            <p>80×160 pixels, RGB565 color.</p>
+            <h3>0.96" display</h3>
+            <p>80×160 RGB565 over CH340/CH341 @ 115200 baud.</p>
           </div>
           <div class="card">
-            <h3>USB bridge</h3>
-            <p>CH340/CH341 serial chip at 115200 baud.</p>
+            <h3>3.5" display</h3>
+            <p>320×480 RGB565 over USB CDC @ 1,152,000 baud.</p>
           </div>
           <div class="card">
-            <h3>Dimensions</h3>
-            <p>43 × 14.5 mm, reversible USB-A/C footprint.</p>
+            <h3>Sensors</h3>
+            <p>3.5" model includes humidity + temperature telemetry.</p>
           </div>
         </div>
       </section>
@@ -110,12 +131,12 @@ just install-jp
       <section class="section" id="features">
         <div class="section-header">
           <h2>What you can display</h2>
-          <p>Built-in presets for system stats, Spotify now-playing, and auto-fit text.</p>
+          <p>Built-in presets for system stats, Spotify now-playing, and auto-fit text on both sizes.</p>
         </div>
         <div class="grid two">
           <div class="card">
             <h3>Auto-fit text</h3>
-            <p>Largest readable type on the 80×160 canvas, automatically.</p>
+            <p>Largest readable type on 160×80 or 320×480 canvases, automatically.</p>
           </div>
           <div class="card">
             <h3>Orientation + flip</h3>
@@ -127,7 +148,11 @@ just install-jp
           </div>
           <div class="card">
             <h3>Spotify (macOS)</h3>
-            <p>Live now-playing with smooth refresh.</p>
+            <p>Live now-playing with smooth refresh on either panel.</p>
+          </div>
+          <div class="card">
+            <h3>Model overrides</h3>
+            <p>Force `--model small|large` and override baud when detection is ambiguous.</p>
           </div>
         </div>
       </section>

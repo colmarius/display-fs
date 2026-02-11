@@ -40,6 +40,15 @@ impl Orientation {
             Orientation::PortraitFlip => PHYSICAL_HEIGHT,
         }
     }
+
+    pub fn dimensions_for_display(self, physical_width: u32, physical_height: u32) -> (u32, u32) {
+        match self {
+            Orientation::Landscape | Orientation::LandscapeFlip => {
+                (physical_height, physical_width)
+            }
+            Orientation::Portrait | Orientation::PortraitFlip => (physical_width, physical_height),
+        }
+    }
 }
 
 // Legacy constants for backward compatibility (default to landscape: 160x80)
@@ -61,6 +70,15 @@ pub fn create_blank_image_oriented(orientation: Orientation) -> RgbImage {
     RgbImage::from_pixel(orientation.width(), orientation.height(), Rgb([0, 0, 0]))
 }
 
+pub fn create_blank_image_for_display(
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> RgbImage {
+    let (width, height) = orientation.dimensions_for_display(physical_width, physical_height);
+    RgbImage::from_pixel(width, height, Rgb([0, 0, 0]))
+}
+
 pub fn create_text_image(text: &str, font_size: f32) -> RgbImage {
     create_text_image_oriented(text, font_size, Orientation::default())
 }
@@ -73,6 +91,18 @@ pub fn create_text_image_oriented(
 ) -> RgbImage {
     let mut img = create_blank_image_oriented(orientation);
     draw_text_oriented(&mut img, text, font_size, orientation);
+    img
+}
+
+pub fn create_text_image_for_display(
+    text: &str,
+    font_size: f32,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> RgbImage {
+    let mut img = create_blank_image_for_display(orientation, physical_width, physical_height);
+    draw_text_oriented_for_display(&mut img, text, font_size, orientation, physical_width, physical_height);
     img
 }
 
@@ -89,6 +119,38 @@ fn draw_text_oriented(img: &mut RgbImage, text: &str, font_size: f32, orientatio
 
     let display_width = orientation.width();
     let display_height = orientation.height();
+
+    let start_y = ((display_height as f32 - total_height) / 2.0).max(0.0) as i32;
+
+    for (i, line) in lines.iter().enumerate() {
+        let (line_width, _) = measure_text(&font, scale, line);
+        let x = ((display_width as i32 - line_width as i32) / 2).max(0);
+        let y = start_y + (i as f32 * line_height) as i32;
+
+        draw_text_mut(img, Rgb([255, 255, 255]), x, y, scale, &font, line);
+    }
+}
+
+fn draw_text_oriented_for_display(
+    img: &mut RgbImage,
+    text: &str,
+    font_size: f32,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) {
+    use ab_glyph::{Font, ScaleFont};
+
+    let font = FontRef::try_from_slice(FONT_DATA).expect("Failed to load embedded font");
+    let scale = PxScale::from(font_size);
+    let scaled_font = font.as_scaled(scale);
+    let line_height = scaled_font.height();
+
+    let lines: Vec<&str> = text.lines().collect();
+    let total_height = line_height * lines.len() as f32;
+
+    let (display_width, display_height) =
+        orientation.dimensions_for_display(physical_width, physical_height);
 
     let start_y = ((display_height as f32 - total_height) / 2.0).max(0.0) as i32;
 
@@ -170,6 +232,37 @@ pub fn calculate_auto_fit_size_oriented(text: &str, orientation: Orientation) ->
     low
 }
 
+pub fn calculate_auto_fit_size_for_display(
+    text: &str,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> f32 {
+    if text.is_empty() {
+        return MIN_FONT_SIZE;
+    }
+
+    let (width, height) = orientation.dimensions_for_display(physical_width, physical_height);
+    let max_text_width = width - HORIZONTAL_PADDING;
+    let max_text_height = height - VERTICAL_PADDING;
+
+    let mut low = MIN_FONT_SIZE;
+    let mut high = MAX_FONT_SIZE;
+
+    while high - low > 0.5 {
+        let mid = (low + high) / 2.0;
+        let (width, height) = measure_multiline_text(text, mid);
+
+        if width <= max_text_width && height <= max_text_height {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    low
+}
+
 fn measure_text(font: &FontRef, scale: PxScale, text: &str) -> (u32, u32) {
     use ab_glyph::{Font, ScaleFont};
 
@@ -206,6 +299,28 @@ pub fn calculate_max_chars_per_line_oriented(font_size: f32, orientation: Orient
     }
 }
 
+pub fn calculate_max_chars_per_line_for_display(
+    font_size: f32,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> usize {
+    let font = FontRef::try_from_slice(FONT_DATA).expect("Failed to load embedded font");
+    let scale = PxScale::from(font_size);
+
+    use ab_glyph::{Font, ScaleFont};
+    let scaled_font = font.as_scaled(scale);
+
+    let avg_width = scaled_font.h_advance(font.glyph_id('x'));
+    let (width, _) = orientation.dimensions_for_display(physical_width, physical_height);
+
+    if avg_width == 0.0 {
+        return 0;
+    }
+
+    (width as f32 / avg_width).floor() as usize
+}
+
 pub fn calculate_max_lines(font_size: f32) -> usize {
     calculate_max_lines_oriented(font_size, Orientation::default())
 }
@@ -224,6 +339,27 @@ pub fn calculate_max_lines_oriented(font_size: f32, orientation: Orientation) ->
     } else {
         0
     }
+}
+
+pub fn calculate_max_lines_for_display(
+    font_size: f32,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> usize {
+    use ab_glyph::{Font, ScaleFont};
+
+    let font = FontRef::try_from_slice(FONT_DATA).expect("Failed to load embedded font");
+    let scale = PxScale::from(font_size);
+    let scaled_font = font.as_scaled(scale);
+    let line_height = scaled_font.height();
+
+    if line_height == 0.0 {
+        return 0;
+    }
+
+    let (_, height) = orientation.dimensions_for_display(physical_width, physical_height);
+    (height as f32 / line_height).floor() as usize
 }
 
 /// Convert image to RGB565 bytes for display (uses image dimensions)
@@ -278,6 +414,58 @@ pub fn image_to_rgb565_bytes_oriented(img: &RgbImage, orientation: Orientation) 
             for py in 0..PHYSICAL_HEIGHT {
                 for px in 0..PHYSICAL_WIDTH {
                     let lx = (PHYSICAL_HEIGHT - 1) - py; // 159 - py
+                    let ly = px;
+                    let pixel = img.get_pixel(lx, ly);
+                    push_rgb565(&mut data, pixel[0], pixel[1], pixel[2]);
+                }
+            }
+        }
+    }
+
+    data
+}
+
+pub fn image_to_rgb565_bytes_for_display(
+    img: &RgbImage,
+    orientation: Orientation,
+    physical_width: u32,
+    physical_height: u32,
+) -> Vec<u8> {
+    let mut data = Vec::with_capacity((physical_width * physical_height * 2) as usize);
+
+    match orientation {
+        Orientation::Portrait => {
+            for y in 0..img.height() {
+                for x in 0..img.width() {
+                    let pixel = img.get_pixel(x, y);
+                    push_rgb565(&mut data, pixel[0], pixel[1], pixel[2]);
+                }
+            }
+        }
+        Orientation::Landscape => {
+            for py in 0..physical_height {
+                for px in 0..physical_width {
+                    let lx = py;
+                    let ly = (physical_width - 1) - px;
+                    let pixel = img.get_pixel(lx, ly);
+                    push_rgb565(&mut data, pixel[0], pixel[1], pixel[2]);
+                }
+            }
+        }
+        Orientation::PortraitFlip => {
+            for py in 0..physical_height {
+                for px in 0..physical_width {
+                    let lx = (physical_width - 1) - px;
+                    let ly = (physical_height - 1) - py;
+                    let pixel = img.get_pixel(lx, ly);
+                    push_rgb565(&mut data, pixel[0], pixel[1], pixel[2]);
+                }
+            }
+        }
+        Orientation::LandscapeFlip => {
+            for py in 0..physical_height {
+                for px in 0..physical_width {
+                    let lx = (physical_height - 1) - py;
                     let ly = px;
                     let pixel = img.get_pixel(lx, ly);
                     push_rgb565(&mut data, pixel[0], pixel[1], pixel[2]);

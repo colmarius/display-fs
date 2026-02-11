@@ -1,4 +1,5 @@
 use crate::image::Orientation;
+use crate::port::DisplayConfig;
 use serialport::SerialPort;
 use std::io::Write;
 use std::thread::sleep;
@@ -22,6 +23,29 @@ pub fn create_bitmap_header() -> [u8; 10] {
 /// Physical display dimensions (always 80x160 portrait)
 const PHYSICAL_WIDTH: u16 = 80;
 const PHYSICAL_HEIGHT: u16 = 160;
+
+fn create_bitmap_header_for_display_oriented(
+    config: DisplayConfig,
+    _orientation: Orientation,
+) -> [u8; 10] {
+    let x0: u16 = 0;
+    let y0: u16 = 0;
+    let x1: u16 = config.width - 1;
+    let y1: u16 = config.height - 1;
+
+    [
+        CMD_SET_BITMAP,
+        (x0 & 0xFF) as u8,
+        (x0 >> 8) as u8,
+        (y0 & 0xFF) as u8,
+        (y0 >> 8) as u8,
+        (x1 & 0xFF) as u8,
+        (x1 >> 8) as u8,
+        (y1 & 0xFF) as u8,
+        (y1 >> 8) as u8,
+        CMD_END,
+    ]
+}
 
 pub fn create_bitmap_header_oriented(_orientation: Orientation) -> [u8; 10] {
     // Always use physical dimensions - rotation is handled in image data
@@ -49,6 +73,35 @@ pub fn send_image_to_display(
     image_data: &[u8],
 ) -> Result<(), ProtocolError> {
     send_image_to_display_oriented(port, image_data, Orientation::default())
+}
+
+pub fn send_image_to_display_for_model(
+    port: &mut Box<dyn SerialPort>,
+    config: DisplayConfig,
+    image_data: &[u8],
+    orientation: Orientation,
+) -> Result<(), ProtocolError> {
+    port.clear(serialport::ClearBuffer::All)
+        .map_err(|e| ProtocolError::SendFailed(std::io::Error::other(e)))?;
+
+    let orient_cmd = create_orientation_command(orientation);
+    port.write_all(&orient_cmd)?;
+    port.flush()?;
+    sleep(Duration::from_millis(50));
+
+    let header = create_bitmap_header_for_display_oriented(config, orientation);
+    port.write_all(&header)?;
+    port.flush()?;
+
+    let chunk_size = config.width as usize * 4;
+    for chunk in image_data.chunks(chunk_size) {
+        port.write_all(chunk)?;
+    }
+
+    port.flush()?;
+    sleep(Duration::from_millis(100));
+
+    Ok(())
 }
 
 /// Create orientation command to initialize display orientation
@@ -149,5 +202,21 @@ mod tests {
     fn test_chunk_size_physical() {
         // Always uses physical width: 80 * 4 = 320
         assert_eq!(PHYSICAL_WIDTH as usize * 4, 320);
+    }
+
+    #[test]
+    fn test_bitmap_header_for_display_dimensions() {
+        let config = DisplayConfig {
+            model: crate::port::DisplayModel::Large,
+            width: 320,
+            height: 480,
+            baud_rate: 1_152_000,
+        };
+
+        let header = create_bitmap_header_for_display_oriented(config, Orientation::Portrait);
+        assert_eq!(header[5], 0x3F); // x1 low (319)
+        assert_eq!(header[6], 0x01); // x1 high
+        assert_eq!(header[7], 0xDF); // y1 low (479)
+        assert_eq!(header[8], 0x01); // y1 high
     }
 }

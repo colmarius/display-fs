@@ -1,17 +1,20 @@
-# Project: Display FS V1 (0.96 inch)
+# Project: Display FS V1 (0.96 inch + 3.5 inch)
 
 ## Overview
 
-Standalone CLI application to interact with the Display FS V1 (0.96 inch), detect if it's connected, and display content.
+Standalone CLI application to interact with the Display FS V1 family (0.96 inch + 3.5 inch), detect if it's connected, and display content.
 
 ## Hardware
 
-- **Device:** WeAct Studio Display FS V1 (0.96 inch IPS LCD)
-- **Connection:** USB-C (appears as serial/COM port)
-- **Resolution:** 80x160 pixels (portrait orientation)
-- **Communication:** USB Serial (UART) at 115200 baud
-- **USB Chip:** CH340/CH341 USB-Serial converter
-- **Known VID/PID:** CH340 (1A86:7523), CH341 (1A86:5523)
+- **Device (small):** WeAct Studio Display FS V1 (0.96 inch IPS LCD)
+  - **Resolution:** 80x160 pixels (portrait orientation)
+  - **Communication:** USB CDC/serial (UART), 115200 baud (current CLI)
+  - **USB Chip:** CH340/CH341 USB-Serial converter
+  - **Known VID/PID:** CH340 (1A86:7523), CH341 (1A86:5523)
+- **Device (large):** WeAct Studio Display FS V1 (3.5 inch IPS LCD)
+  - **Resolution:** 320x480 pixels (portrait orientation)
+  - **Communication:** USB2.0 FS (CDC); reference Python app uses 1,152,000 baud
+  - **Sensors:** Humidity + Temperature
 
 ## Project Structure
 

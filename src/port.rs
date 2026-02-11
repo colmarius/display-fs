@@ -2,7 +2,6 @@ use serialport::{SerialPort, SerialPortInfo, SerialPortType};
 use std::time::Duration;
 use thiserror::Error;
 
-const BAUD_RATE: u32 = 115200;
 const TIMEOUT_MS: u64 = 1000;
 
 const DISPLAY_FS_VID_PID: [(u16, u16); 3] = [
@@ -10,6 +9,11 @@ const DISPLAY_FS_VID_PID: [(u16, u16); 3] = [
     (0x1A86, 0x5523), // CH341
     (0x1A86, 0xFE0C), // WeAct Studio Display FS V1
 ];
+
+const DISPLAY_FS_VID: u16 = 0x1A86;
+const DISPLAY_FS_PID_LARGE: u16 = 0xFE0C;
+const DISPLAY_FS_BAUD_SMALL: u32 = 115200;
+const DISPLAY_FS_BAUD_LARGE: u32 = 1_152_000;
 
 #[derive(Error, Debug)]
 pub enum PortError {
@@ -24,6 +28,43 @@ pub struct PortInfo {
     pub name: String,
     pub vid: u16,
     pub pid: u16,
+    pub model: DisplayModel,
+    pub baud_rate: u32,
+    pub product: Option<String>,
+    pub manufacturer: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DisplayModel {
+    Small,
+    Large,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DisplayConfig {
+    pub model: DisplayModel,
+    pub width: u16,
+    pub height: u16,
+    pub baud_rate: u32,
+}
+
+impl DisplayModel {
+    pub fn config(self) -> DisplayConfig {
+        match self {
+            DisplayModel::Small => DisplayConfig {
+                model: self,
+                width: 80,
+                height: 160,
+                baud_rate: DISPLAY_FS_BAUD_SMALL,
+            },
+            DisplayModel::Large => DisplayConfig {
+                model: self,
+                width: 320,
+                height: 480,
+                baud_rate: DISPLAY_FS_BAUD_LARGE,
+            },
+        }
+    }
 }
 
 pub fn list_ports() -> Vec<SerialPortInfo> {
@@ -36,10 +77,16 @@ pub fn find_display_port() -> Option<PortInfo> {
             let vid = usb_info.vid;
             let pid = usb_info.pid;
             if DISPLAY_FS_VID_PID.contains(&(vid, pid)) {
+                let model = detect_display_model(usb_info)?;
+                let config = model.config();
                 return Some(PortInfo {
                     name: port.port_name,
                     vid,
                     pid,
+                    model,
+                    baud_rate: config.baud_rate,
+                    product: usb_info.product.clone(),
+                    manufacturer: usb_info.manufacturer.clone(),
                 });
             }
         }
@@ -52,10 +99,30 @@ pub fn is_display_connected() -> bool {
 }
 
 pub fn open_connection(port: &PortInfo) -> Result<Box<dyn SerialPort>, PortError> {
-    let connection = serialport::new(&port.name, BAUD_RATE)
+    let connection = serialport::new(&port.name, port.baud_rate)
         .timeout(Duration::from_millis(TIMEOUT_MS))
         .open()?;
     Ok(connection)
+}
+
+fn detect_display_model(usb_info: &serialport::UsbPortInfo) -> Option<DisplayModel> {
+    let product = usb_info.product.as_deref().unwrap_or_default().to_lowercase();
+    if usb_info.vid == DISPLAY_FS_VID && usb_info.pid == DISPLAY_FS_PID_LARGE {
+        if product.contains("0.96") {
+            return Some(DisplayModel::Small);
+        }
+        return Some(DisplayModel::Large);
+    }
+    if product.contains("0.96") {
+        return Some(DisplayModel::Small);
+    }
+    if product.contains("display fs v1") {
+        return Some(DisplayModel::Large);
+    }
+    match (usb_info.vid, usb_info.pid) {
+        (0x1A86, 0x7523) | (0x1A86, 0x5523) => Some(DisplayModel::Small),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -106,9 +173,34 @@ mod tests {
             name: "COM3".to_string(),
             vid: 0x1A86,
             pid: 0x7523,
+            model: DisplayModel::Small,
+            baud_rate: DISPLAY_FS_BAUD_SMALL,
+            product: Some("Display FS 0.96 Inch".to_string()),
+            manufacturer: Some("WeAct Studio".to_string()),
         };
         assert_eq!(port.name, "COM3");
         assert_eq!(port.vid, 0x1A86);
         assert_eq!(port.pid, 0x7523);
+    }
+
+    #[test]
+    fn test_detect_display_model_product_hints() {
+        let usb_info = serialport::UsbPortInfo {
+            vid: DISPLAY_FS_VID,
+            pid: DISPLAY_FS_PID_LARGE,
+            serial_number: None,
+            manufacturer: Some("WeAct Studio".to_string()),
+            product: Some("Display FS V1".to_string()),
+        };
+        assert_eq!(detect_display_model(&usb_info), Some(DisplayModel::Large));
+
+        let usb_info_small = serialport::UsbPortInfo {
+            vid: DISPLAY_FS_VID,
+            pid: DISPLAY_FS_PID_LARGE,
+            serial_number: None,
+            manufacturer: Some("WeAct Studio".to_string()),
+            product: Some("Display FS 0.96 Inch".to_string()),
+        };
+        assert_eq!(detect_display_model(&usb_info_small), Some(DisplayModel::Small));
     }
 }
