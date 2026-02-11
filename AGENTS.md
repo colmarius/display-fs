@@ -135,6 +135,10 @@ cargo clippy -- -D warnings
 cargo test
 ```
 
+### Display Orientation
+
+Use `--orientation` to pick landscape or portrait and `--flip` to rotate output 180° (useful for upside-down installs).
+
 ## Git Workflow
 
 Use plain git commands for version control.

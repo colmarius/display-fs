@@ -106,6 +106,7 @@ Options:
   -s, --font-size <SIZE>        Font size in pixels [default: 14]
   -a, --auto                    Auto-fit text to largest readable size
   -o, --orientation <MODE>      Display orientation: landscape or portrait [default: landscape]
+      --flip                    Flip the display 180° (use if the screen is upside down)
   -d, --delay <SECONDS>         Delay between pages [default: 2.0]
   -l, --loop                    Loop display continuously
       --detect                  Only check if display is connected
@@ -126,7 +127,7 @@ The `--auto` flag automatically calculates the largest font size that fits your 
 
 ### Orientation Mode
 
-The `--orientation` flag switches between landscape (160x80, default) and portrait (80x160) modes:
+The `--orientation` flag switches between landscape (160x80, default) and portrait (80x160) modes. Add `--flip` to rotate the output 180° in either orientation:
 
 ```bash
 # Landscape (default) - wider display
@@ -151,6 +152,9 @@ The `--orientation` flag switches between landscape (160x80, default) and portra
 # Portrait orientation with auto-fit
 ./display-fs show --auto -o portrait "Tall"
 
+# Landscape orientation but flipped 180°
+./display-fs show --auto --flip "Upside down"
+
 # Larger font (manual)
 ./display-fs show -s 24 "BIG"
 
@@ -168,6 +172,9 @@ Display the currently playing Spotify track:
 
 # Live updates (refresh every 2 seconds)
 ./display-fs spotify --loop
+
+# Live updates with flipped display
+./display-fs spotify --loop --flip
 
 # Faster refresh
 ./display-fs spotify --loop --speed fast

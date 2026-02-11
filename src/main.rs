@@ -49,11 +49,13 @@ enum OrientationArg {
     Portrait,
 }
 
-impl From<OrientationArg> for Orientation {
-    fn from(arg: OrientationArg) -> Self {
-        match arg {
-            OrientationArg::Landscape => Orientation::Landscape,
-            OrientationArg::Portrait => Orientation::Portrait,
+impl OrientationArg {
+    fn to_orientation(self, flip: bool) -> Orientation {
+        match (self, flip) {
+            (OrientationArg::Landscape, true) => Orientation::LandscapeFlip,
+            (OrientationArg::Landscape, false) => Orientation::Landscape,
+            (OrientationArg::Portrait, true) => Orientation::PortraitFlip,
+            (OrientationArg::Portrait, false) => Orientation::Portrait,
         }
     }
 }
@@ -71,6 +73,10 @@ struct DisplayOptions {
     /// Display orientation
     #[arg(short = 'o', long, value_enum, default_value = "landscape")]
     orientation: OrientationArg,
+
+    /// Flip the display 180° (use if the screen is upside down)
+    #[arg(long)]
+    flip: bool,
 
     /// Delay between pages/updates in seconds (must be positive)
     #[arg(short, long, default_value = "2.0", value_parser = validate_positive_f32)]
@@ -91,7 +97,7 @@ impl DisplayOptions {
     }
 
     pub fn orientation(&self) -> Orientation {
-        self.orientation.into()
+        self.orientation.to_orientation(self.flip)
     }
 }
 
