@@ -66,6 +66,8 @@ just docs-serve
 ### Option 1: Download Binary (Recommended)
 
 Download the latest release for your platform from [Releases](https://github.com/colmarius/display-fs/releases).
+Release binaries are built with the default Latin font. For Japanese/CJK text, build with the `japanese`
+feature (see below).
 
 ### Option 2: Build from Source
 
@@ -98,6 +100,9 @@ just install-jp     # Install japanese-enabled binary
 
 # Or with cargo
 cargo build --release --features japanese
+
+# Copy to a location in PATH
+cp target/release/display-fs /usr/local/bin/display-fs
 ```
 
 | Build | Font | Binary Size |
