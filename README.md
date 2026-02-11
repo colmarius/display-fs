@@ -1,12 +1,12 @@
 # Display FS V1
 
-CLI tool to interact with the WeAct Studio Display FS V1 (0.96 inch IPS LCD).
+CLI tool to interact with the WeAct Studio Display FS V1 family (0.96 inch + 3.5 inch IPS LCDs).
 
 ## Features
 
 - **Standalone executable** - No runtime dependencies, just download and run
 - Auto-detect display via USB (CH340/CH341 USB-Serial)
-- Display text on the 160x80 pixel screen
+- Display text on the 160x80 or 320x480 pixel screen
 - Cross-platform support (Windows, Linux, macOS)
 
 ## Website
@@ -27,14 +27,14 @@ just docs-serve
 
 ## Hardware
 
-| Specification | Value                       |
-|---------------|------------------------------|
-| Device        | WeAct Studio Display FS V1  |
-| Screen Size   | 0.96 inch IPS LCD           |
-| Resolution    | 80x160 pixels (portrait)    |
-| Connection    | USB-C (serial)              |
-| Baud Rate     | 115200                      |
-| USB Chip      | CH340/CH341                 |
+| Specification | 0.96 inch                          | 3.5 inch                          |
+|---------------|------------------------------------|-----------------------------------|
+| Device        | WeAct Studio Display FS V1          | WeAct Studio Display FS V1        |
+| Resolution    | 80x160 pixels (portrait)            | 320x480 pixels (portrait)         |
+| Connection    | USB-C (serial)                      | USB 2.0 FS (CDC)                  |
+| Baud Rate     | 115200                              | 1152000 (reference Python app)    |
+| USB Chip      | CH340/CH341                          | USB CDC                           |
+| Sensors       | None                                | Humidity + Temperature            |
 
 ## Quick Start
 
