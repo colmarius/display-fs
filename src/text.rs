@@ -32,18 +32,20 @@ pub fn split_into_pages_for_display(
     physical_width: u32,
     physical_height: u32,
 ) -> Vec<String> {
-    let max_lines = calculate_max_lines_for_display(
-        font_size,
-        orientation,
-        physical_width,
-        physical_height,
-    );
+    let max_lines =
+        calculate_max_lines_for_display(font_size, orientation, physical_width, physical_height);
 
     if max_lines == 0 {
         return vec![];
     }
 
-    let lines = wrap_text_for_display(text, font_size, orientation, physical_width, physical_height);
+    let lines = wrap_text_for_display(
+        text,
+        font_size,
+        orientation,
+        physical_width,
+        physical_height,
+    );
 
     if lines.is_empty() {
         return vec![];
@@ -152,7 +154,13 @@ fn wrap_text_for_display(
 
         for word in words {
             if current_line.is_empty() {
-                if fits_in_width_for_display(word, font_size, orientation, physical_width, physical_height) {
+                if fits_in_width_for_display(
+                    word,
+                    font_size,
+                    orientation,
+                    physical_width,
+                    physical_height,
+                ) {
                     current_line = word.to_string();
                 } else {
                     current_line = truncate_to_fit_for_display(
@@ -168,11 +176,23 @@ fn wrap_text_for_display(
                 }
             } else {
                 let test_line = format!("{} {}", current_line, word);
-                if fits_in_width_for_display(&test_line, font_size, orientation, physical_width, physical_height) {
+                if fits_in_width_for_display(
+                    &test_line,
+                    font_size,
+                    orientation,
+                    physical_width,
+                    physical_height,
+                ) {
                     current_line = test_line;
                 } else {
                     result.push(current_line);
-                    if fits_in_width_for_display(word, font_size, orientation, physical_width, physical_height) {
+                    if fits_in_width_for_display(
+                        word,
+                        font_size,
+                        orientation,
+                        physical_width,
+                        physical_height,
+                    ) {
                         current_line = word.to_string();
                     } else {
                         current_line = truncate_to_fit_for_display(

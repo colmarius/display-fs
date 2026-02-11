@@ -102,7 +102,14 @@ pub fn create_text_image_for_display(
     physical_height: u32,
 ) -> RgbImage {
     let mut img = create_blank_image_for_display(orientation, physical_width, physical_height);
-    draw_text_oriented_for_display(&mut img, text, font_size, orientation, physical_width, physical_height);
+    draw_text_oriented_for_display(
+        &mut img,
+        text,
+        font_size,
+        orientation,
+        physical_width,
+        physical_height,
+    );
     img
 }
 

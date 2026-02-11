@@ -16,8 +16,7 @@ pub use image::{
     Orientation, DISPLAY_HEIGHT, DISPLAY_WIDTH, MAX_FONT_SIZE, MIN_FONT_SIZE,
 };
 pub use port::{
-    find_display_port, is_display_connected, open_connection, DisplayConfig, DisplayModel,
-    PortInfo,
+    find_display_port, is_display_connected, open_connection, DisplayConfig, DisplayModel, PortInfo,
 };
 pub use protocol::{
     send_image_to_display, send_image_to_display_for_model, send_image_to_display_oriented,

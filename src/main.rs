@@ -364,7 +364,10 @@ fn run_demo(display: DisplayOptions) -> ExitCode {
 
     let display_config = display.override_config(port_info.model.config());
     println!("✓ Found display on {}", port_info.name);
-    println!("Opening connection to {} at {} baud...", port_info.name, display_config.baud_rate);
+    println!(
+        "Opening connection to {} at {} baud...",
+        port_info.name, display_config.baud_rate
+    );
 
     let mut port_info = port_info;
     port_info.baud_rate = display_config.baud_rate;
@@ -438,7 +441,10 @@ fn run_spotify(args: SpotifyArgs) -> ExitCode {
 
     let display_config = args.display.override_config(port_info.model.config());
     println!("✓ Found display on {}", port_info.name);
-    println!("Opening connection to {} at {} baud...", port_info.name, display_config.baud_rate);
+    println!(
+        "Opening connection to {} at {} baud...",
+        port_info.name, display_config.baud_rate
+    );
 
     let mut port_info = port_info;
     port_info.baud_rate = display_config.baud_rate;

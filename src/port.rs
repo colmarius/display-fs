@@ -106,7 +106,11 @@ pub fn open_connection(port: &PortInfo) -> Result<Box<dyn SerialPort>, PortError
 }
 
 fn detect_display_model(usb_info: &serialport::UsbPortInfo) -> Option<DisplayModel> {
-    let product = usb_info.product.as_deref().unwrap_or_default().to_lowercase();
+    let product = usb_info
+        .product
+        .as_deref()
+        .unwrap_or_default()
+        .to_lowercase();
     if usb_info.vid == DISPLAY_FS_VID && usb_info.pid == DISPLAY_FS_PID_LARGE {
         if product.contains("0.96") {
             return Some(DisplayModel::Small);
@@ -201,6 +205,9 @@ mod tests {
             manufacturer: Some("WeAct Studio".to_string()),
             product: Some("Display FS 0.96 Inch".to_string()),
         };
-        assert_eq!(detect_display_model(&usb_info_small), Some(DisplayModel::Small));
+        assert_eq!(
+            detect_display_model(&usb_info_small),
+            Some(DisplayModel::Small)
+        );
     }
 }
