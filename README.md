@@ -36,6 +36,12 @@ just docs-serve
 | USB Chip      | CH340/CH341                          | USB CDC                           |
 | Sensors       | None                                | Humidity + Temperature            |
 
+## Model Detection
+
+The CLI auto-detects the display model by VID/PID and USB product strings. If detection is
+ambiguous, pass `--model small` or `--model large` and, if needed, override the baud rate with
+`--baud-rate`.
+
 ## Quick Start
 
 ```bash
@@ -134,6 +140,8 @@ Options:
   -d, --delay <SECONDS>         Delay between pages [default: 2.0]
   -l, --loop                    Loop display continuously
       --detect                  Only check if display is connected
+      --model <MODEL>           Force display model: small or large
+      --baud-rate <BAUD>        Override baud rate (advanced)
   -h, --help                    Print help
 ```
 

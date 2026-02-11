@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use display_fs::{
-    calculate_auto_fit_size_oriented, create_text_image_oriented, find_display_port,
-    get_now_playing, image_to_rgb565_bytes_oriented, is_display_connected, open_connection,
-    send_image_to_display_oriented, split_into_pages, Orientation,
+    calculate_auto_fit_size_for_display, create_text_image_for_display, find_display_port,
+    get_now_playing, image_to_rgb565_bytes_for_display, is_display_connected, open_connection,
+    send_image_to_display_for_model, split_into_pages_for_display, DisplayConfig, DisplayModel,
+    Orientation,
 };
 use std::process::{Command, ExitCode};
 use std::thread;
@@ -89,6 +90,14 @@ struct DisplayOptions {
     /// Speed preset (overrides --delay if provided)
     #[arg(long, value_enum)]
     speed: Option<SpeedPreset>,
+
+    /// Force display model (small = 0.96 inch, large = 3.5 inch)
+    #[arg(long, value_enum)]
+    model: Option<DisplayModelArg>,
+
+    /// Override baud rate (advanced)
+    #[arg(long)]
+    baud_rate: Option<u32>,
 }
 
 impl DisplayOptions {
@@ -98,6 +107,34 @@ impl DisplayOptions {
 
     pub fn orientation(&self) -> Orientation {
         self.orientation.to_orientation(self.flip)
+    }
+
+    pub fn override_config(&self, base: DisplayConfig) -> DisplayConfig {
+        let mut config = base;
+        if let Some(model) = self.model {
+            config = model.to_model().config();
+        }
+        if let Some(baud_rate) = self.baud_rate {
+            config.baud_rate = baud_rate;
+        }
+        config
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum DisplayModelArg {
+    /// 0.96-inch display
+    Small,
+    /// 3.5-inch display
+    Large,
+}
+
+impl DisplayModelArg {
+    fn to_model(self) -> DisplayModel {
+        match self {
+            DisplayModelArg::Small => DisplayModel::Small,
+            DisplayModelArg::Large => DisplayModel::Large,
+        }
     }
 }
 
@@ -324,8 +361,12 @@ fn run_demo(display: DisplayOptions) -> ExitCode {
         }
     };
 
+    let display_config = display.override_config(port_info.model.config());
     println!("✓ Found display on {}", port_info.name);
+    println!("Opening connection to {} at {} baud...", port_info.name, display_config.baud_rate);
 
+    let mut port_info = port_info;
+    port_info.baud_rate = display_config.baud_rate;
     let mut connection = match open_connection(&port_info) {
         Ok(c) => c,
         Err(e) => {
@@ -342,13 +383,38 @@ fn run_demo(display: DisplayOptions) -> ExitCode {
             let text = preset.run_command();
             println!("[{}] {}", desc, text);
 
-            let font_size = get_effective_font_size(&text, &display);
-            let img = create_text_image_oriented(&text, font_size, orientation);
-            let image_data = image_to_rgb565_bytes_oriented(&img, orientation);
+            let font_size = if display.auto {
+                let size = calculate_auto_fit_size_for_display(
+                    &text,
+                    orientation,
+                    display_config.width as u32,
+                    display_config.height as u32,
+                );
+                println!("Auto-fit font size: {:.1}", size);
+                size
+            } else {
+                display.font_size
+            };
+            let img = create_text_image_for_display(
+                &text,
+                font_size,
+                orientation,
+                display_config.width as u32,
+                display_config.height as u32,
+            );
+            let image_data = image_to_rgb565_bytes_for_display(
+                &img,
+                orientation,
+                display_config.width as u32,
+                display_config.height as u32,
+            );
 
-            if let Err(e) =
-                send_image_to_display_oriented(&mut connection, &image_data, orientation)
-            {
+            if let Err(e) = send_image_to_display_for_model(
+                &mut connection,
+                display_config,
+                &image_data,
+                orientation,
+            ) {
                 println!("✗ Failed to send image: {}", e);
                 return ExitCode::FAILURE;
             }
@@ -369,8 +435,12 @@ fn run_spotify(args: SpotifyArgs) -> ExitCode {
         }
     };
 
+    let display_config = args.display.override_config(port_info.model.config());
     println!("✓ Found display on {}", port_info.name);
+    println!("Opening connection to {} at {} baud...", port_info.name, display_config.baud_rate);
 
+    let mut port_info = port_info;
+    port_info.baud_rate = display_config.baud_rate;
     let mut connection = match open_connection(&port_info) {
         Ok(c) => c,
         Err(e) => {
@@ -405,13 +475,38 @@ fn run_spotify(args: SpotifyArgs) -> ExitCode {
         let should_update = current != last_track;
 
         if should_update {
-            let font_size = get_effective_font_size(&text, &args.display);
-            let img = create_text_image_oriented(&text, font_size, orientation);
-            let image_data = image_to_rgb565_bytes_oriented(&img, orientation);
+            let font_size = if args.display.auto {
+                let size = calculate_auto_fit_size_for_display(
+                    &text,
+                    orientation,
+                    display_config.width as u32,
+                    display_config.height as u32,
+                );
+                println!("Auto-fit font size: {:.1}", size);
+                size
+            } else {
+                args.display.font_size
+            };
+            let img = create_text_image_for_display(
+                &text,
+                font_size,
+                orientation,
+                display_config.width as u32,
+                display_config.height as u32,
+            );
+            let image_data = image_to_rgb565_bytes_for_display(
+                &img,
+                orientation,
+                display_config.width as u32,
+                display_config.height as u32,
+            );
 
-            if let Err(e) =
-                send_image_to_display_oriented(&mut connection, &image_data, orientation)
-            {
+            if let Err(e) = send_image_to_display_for_model(
+                &mut connection,
+                display_config,
+                &image_data,
+                orientation,
+            ) {
                 println!("✗ Failed to send image: {}", e);
                 return ExitCode::FAILURE;
             }
@@ -445,6 +540,7 @@ fn detect_display() -> ExitCode {
         if let Some(port) = find_display_port() {
             println!("✓ Found display on {}", port.name);
             println!("  VID: {:04X}, PID: {:04X}", port.vid, port.pid);
+            println!("  Model: {:?}", port.model);
             return ExitCode::SUCCESS;
         }
     }
@@ -455,18 +551,7 @@ fn detect_display() -> ExitCode {
     ExitCode::FAILURE
 }
 
-fn get_effective_font_size(text: &str, display: &DisplayOptions) -> f32 {
-    if display.auto {
-        let size = calculate_auto_fit_size_oriented(text, display.orientation());
-        println!("Auto-fit font size: {:.1}", size);
-        size
-    } else {
-        display.font_size
-    }
-}
-
 fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
-    let font_size = get_effective_font_size(text, display);
     let delay = display.effective_delay();
     let loop_mode = display.r#loop;
     let orientation = display.orientation();
@@ -483,9 +568,29 @@ fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
         }
     };
 
+    let display_config = display.override_config(port_info.model.config());
+    let font_size = if display.auto {
+        let size = calculate_auto_fit_size_for_display(
+            text,
+            orientation,
+            display_config.width as u32,
+            display_config.height as u32,
+        );
+        println!("Auto-fit font size: {:.1}", size);
+        size
+    } else {
+        display.font_size
+    };
+
     println!("✓ Found display on {}", port_info.name);
 
-    let pages = split_into_pages(text, font_size);
+    let pages = split_into_pages_for_display(
+        text,
+        font_size,
+        orientation,
+        display_config.width as u32,
+        display_config.height as u32,
+    );
     let pages = if pages.is_empty() {
         vec![text.to_string()]
     } else {
@@ -500,7 +605,12 @@ fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
         page_count, font_size, orientation
     );
 
-    println!("Opening connection to {}...", port_info.name);
+    println!(
+        "Opening connection to {} at {} baud...",
+        port_info.name, display_config.baud_rate
+    );
+    let mut port_info = port_info;
+    port_info.baud_rate = display_config.baud_rate;
     let mut connection = match open_connection(&port_info) {
         Ok(c) => c,
         Err(e) => {
@@ -518,10 +628,26 @@ fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
                 println!("Displaying page {}/{}...", i + 1, page_count);
             }
 
-            let img = create_text_image_oriented(page, font_size, orientation);
-            let image_data = image_to_rgb565_bytes_oriented(&img, orientation);
+            let img = create_text_image_for_display(
+                page,
+                font_size,
+                orientation,
+                display_config.width as u32,
+                display_config.height as u32,
+            );
+            let image_data = image_to_rgb565_bytes_for_display(
+                &img,
+                orientation,
+                display_config.width as u32,
+                display_config.height as u32,
+            );
 
-            match send_image_to_display_oriented(&mut connection, &image_data, orientation) {
+            match send_image_to_display_for_model(
+                &mut connection,
+                display_config,
+                &image_data,
+                orientation,
+            ) {
                 Ok(()) => {
                     if page_count == 1 && !loop_mode {
                         println!("✓ Image sent successfully!");
