@@ -173,6 +173,9 @@ Display the currently playing Spotify track:
 # Live updates (refresh every 2 seconds)
 ./display-fs spotify --loop
 
+# Live updates with flipped display
+./display-fs spotify --loop --flip
+
 # Faster refresh
 ./display-fs spotify --loop --speed fast
 ```
