@@ -118,6 +118,8 @@ just build         # Build release binary
 just install       # Build and update ./display-fs
 just run "Hi"      # Run with custom text
 just detect        # Detect display
+just docs-open     # Open docs site in browser
+just docs-serve    # Serve docs at http://localhost:8000
 ```
 
 ### Direct Cargo Commands

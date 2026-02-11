@@ -52,3 +52,11 @@ run text="Hello World!":
 # Detect display
 detect:
     cargo run -- --detect
+
+# Open docs site in browser
+docs-open:
+    open site/index.html
+
+# Serve docs locally
+docs-serve:
+    python3 -m http.server --directory site 8000

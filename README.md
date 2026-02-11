@@ -18,6 +18,13 @@ The GitHub Pages site lives in `site/` and deploys automatically on pushes to `m
 open site/index.html
 ```
 
+Or with just:
+
+```bash
+just docs-open
+just docs-serve
+```
+
 ## Hardware
 
 | Specification | Value                       |

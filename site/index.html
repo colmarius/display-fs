@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Display FS V1 — Tiny USB Status Display</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="nav">
+        <div class="logo">Display FS V1</div>
+        <div class="nav-links">
+          <a href="https://github.com/colmarius/display-fs">GitHub</a>
+          <a href="#getting-started">Get Started</a>
+          <a href="#hardware">Hardware</a>
+        </div>
+      </nav>
+      <div class="hero-content">
+        <div class="hero-text">
+          <p class="eyebrow">USB status display, 80×160 pixels</p>
+          <h1>Small screen. Serious signal.</h1>
+          <p class="lede">
+            Display FS V1 is a tiny USB-C IPS display. This CLI talks to it directly over serial so you can
+            push crisp text, status, and now-playing info from your terminal.
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#getting-started">Get Started</a>
+            <a class="btn ghost" href="https://github.com/colmarius/display-fs/releases">Download</a>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="screen">
+            <div class="screen-inner">
+              <span>DISPLAY FS</span>
+              <span>READY</span>
+            </div>
+          </div>
+          <div class="spec-grid">
+            <div>
+              <p class="label">Resolution</p>
+              <p class="value">160×80</p>
+            </div>
+            <div>
+              <p class="label">Panel</p>
+              <p class="value">0.96" IPS</p>
+            </div>
+            <div>
+              <p class="label">Connection</p>
+              <p class="value">USB-C</p>
+            </div>
+            <div>
+              <p class="label">Protocol</p>
+              <p class="value">Serial</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section" id="getting-started">
+        <div class="section-header">
+          <h2>Get started in 30 seconds</h2>
+          <p>Detect the display, push text, flip orientation, and loop updates.</p>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <h3>Install</h3>
+            <pre><code>brew install just
+just build
+./display-fs show "Hello"</code></pre>
+          </div>
+          <div class="card">
+            <h3>Useful commands</h3>
+            <pre><code>./display-fs show --auto "Status OK"
+./display-fs show --detect
+./display-fs preset clock --loop</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="hardware">
+        <div class="section-header">
+          <h2>Hardware notes</h2>
+          <p>WeAct Studio Display FS V1 (0.96") — USB 2.0 Full Speed CDC device.</p>
+        </div>
+        <div class="grid three">
+          <div class="card">
+            <h3>Resolution</h3>
+            <p>80×160 pixels, RGB565 color.</p>
+          </div>
+          <div class="card">
+            <h3>USB bridge</h3>
+            <p>CH340/CH341 serial chip at 115200 baud.</p>
+          </div>
+          <div class="card">
+            <h3>Dimensions</h3>
+            <p>43 × 14.5 mm, reversible USB-A/C footprint.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="section-header">
+          <h2>What you can display</h2>
+          <p>Built-in presets for system stats, Spotify now-playing, and auto-fit text.</p>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <h3>Auto-fit text</h3>
+            <p>Largest readable type on the 80×160 canvas, automatically.</p>
+          </div>
+          <div class="card">
+            <h3>Orientation + flip</h3>
+            <p>Portrait or landscape, with 180° rotation for inverted installs.</p>
+          </div>
+          <div class="card">
+            <h3>Presets</h3>
+            <p>Clock, CPU, memory, git status, IP, and more on a loop.</p>
+          </div>
+          <div class="card">
+            <h3>Spotify (macOS)</h3>
+            <p>Live now-playing with smooth refresh.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="docs">
+        <div class="callout">
+          <div>
+            <h2>More details in the README</h2>
+            <p>Full CLI reference, examples, and build options are in the repo documentation.</p>
+          </div>
+          <a class="btn primary" href="https://github.com/colmarius/display-fs#readme">Open README</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Built for tiny screens and fast feedback. MIT Licensed.</p>
+    </footer>
+  </body>
+</html>
