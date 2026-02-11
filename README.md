@@ -1,4 +1,4 @@
-# Mini Display
+# Display FS V1
 
 CLI tool to interact with the WeAct Studio Display FS V1 (0.96 inch IPS LCD).
 
@@ -8,6 +8,15 @@ CLI tool to interact with the WeAct Studio Display FS V1 (0.96 inch IPS LCD).
 - Auto-detect display via USB (CH340/CH341 USB-Serial)
 - Display text on the 160x80 pixel screen
 - Cross-platform support (Windows, Linux, macOS)
+
+## Website
+
+The GitHub Pages site lives in `site/` and deploys automatically on pushes to `main`.
+
+```bash
+# Local preview
+open site/index.html
+```
 
 ## Hardware
 
@@ -49,7 +58,7 @@ CLI tool to interact with the WeAct Studio Display FS V1 (0.96 inch IPS LCD).
 
 ### Option 1: Download Binary (Recommended)
 
-Download the latest release for your platform from [Releases](https://github.com/inatuwe/mini_display/releases).
+Download the latest release for your platform from [Releases](https://github.com/colmarius/display-fs/releases).
 
 ### Option 2: Build from Source
 
@@ -58,6 +67,9 @@ Requires [Rust](https://rustup.rs/):
 ```bash
 # Install Rust (if not installed)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Linux (Ubuntu/Debian): install libudev for serial port support
+sudo apt-get update && sudo apt-get install -y libudev-dev
 
 # Build release binary (Latin only, ~1.5 MB)
 cargo build --release
@@ -206,8 +218,13 @@ Available presets: `clock`, `datetime`, `uptime`, `git`, `ip`, `whoami`, `pwd`, 
 ## Project Structure
 
 ```text
-mini_display/
+display-fs/
 ├── Cargo.toml             # Rust project configuration
+├── .github/                # GitHub Actions workflows
+│   └── workflows/          # GitHub Pages deploy workflow
+├── site/                   # Static GitHub Pages site
+│   ├── index.html          # Landing page
+│   └── styles.css          # Site styles
 ├── src/                   # Rust source code
 │   ├── main.rs            # CLI entry point
 │   ├── lib.rs             # Library exports

@@ -16,7 +16,7 @@ Standalone CLI application to interact with the Display FS V1 (0.96 inch), detec
 ## Project Structure
 
 ```text
-mini_display/
+display-fs/
 ├── AGENTS.md                    # This file - project instructions
 ├── Cargo.toml                   # Rust project configuration
 ├── .agents/
@@ -28,6 +28,11 @@ mini_display/
 │   └── skills/                  # Agent skills
 │       ├── ralph/               # Autonomous implementation loops
 │       └── research/            # Deep research workflow
+├── .github/
+│   └── workflows/               # GitHub Actions workflows (Pages, CI)
+├── site/                        # Static site for GitHub Pages
+│   ├── index.html               # Landing page
+│   └── styles.css               # Site styles
 ├── src/                         # Rust source modules
 │   ├── main.rs                  # CLI entry point
 │   ├── lib.rs                   # Library exports
@@ -120,6 +125,9 @@ just detect        # Detect display
 ```bash
 # Install Rust (if not installed)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Linux (Ubuntu/Debian): install libudev for serial port support
+sudo apt-get update && sudo apt-get install -y libudev-dev
 
 # Build
 cargo build              # Debug build
