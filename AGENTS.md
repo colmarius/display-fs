@@ -23,7 +23,11 @@ Spotify now-playing output is width-aware on both display sizes.
 display-fs/
 ├── AGENTS.md                    # This file - project instructions
 ├── Cargo.toml                   # Rust project configuration
+├── .amp/
+│   └── services.yaml            # Supervised static-site portal
 ├── .agents/
+│   ├── setup                    # Fresh-orb dependency setup
+│   ├── resume                   # Fast orb wake-up checks
 │   ├── research/                # Research and reference material
 │   ├── plans/                   # Implementation plans
 │   │   ├── todo/                # Planned but not started
@@ -147,6 +151,15 @@ cargo run -- --detect
 cargo fmt
 cargo clippy -- -D warnings
 cargo test
+```
+
+### Amp Orb Lifecycle
+
+Fresh orbs run `.agents/setup` to install Rust, native build dependencies, `just`, and locked Cargo dependencies. Resumed orbs run `.agents/resume`, which ensures the supervised static-site portal is available.
+
+```bash
+# Reconcile the services declared in .amp/services.yaml
+amp orb services ensure
 ```
 
 ### Display Orientation

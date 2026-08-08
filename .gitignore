@@ -1,6 +1,9 @@
 # Rust
 target/
 
+# Amp orb-generated portal state
+.amp/portals/
+
 # IDEs
 .idea/
 .vscode/

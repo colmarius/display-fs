@@ -25,6 +25,8 @@ just docs-open
 just docs-serve
 ```
 
+In an Amp orb, `.agents/setup` installs the Rust development environment and starts the site through the supervised service declared in `.amp/services.yaml`. Run `amp orb services ensure` to reconcile it and print its portal URL.
+
 ## Hardware
 
 | Specification | 0.96 inch                          | 3.5 inch                          |
@@ -241,6 +243,11 @@ Available presets: `clock`, `datetime`, `uptime`, `git`, `ip`, `whoami`, `pwd`, 
 ```text
 display-fs/
 ├── Cargo.toml             # Rust project configuration
+├── .amp/
+│   └── services.yaml      # Supervised static-site portal for Amp orbs
+├── .agents/
+│   ├── setup              # Fresh-orb toolchain and dependency setup
+│   └── resume             # Fast orb wake-up checks
 ├── .github/                # GitHub Actions workflows
 │   └── workflows/          # GitHub Pages deploy workflow
 ├── site/                   # Static GitHub Pages site

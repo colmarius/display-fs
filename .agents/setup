@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+run_step() {
+    local label="$1"
+    shift
+    local started=$SECONDS
+    printf '==> %s\n' "$label"
+    "$@"
+    printf '    completed in %ss\n' "$((SECONDS - started))"
+}
+
+install_system_packages() {
+    local packages=(build-essential ca-certificates curl libudev-dev pkg-config)
+    local missing=()
+    local package
+
+    for package in "${packages[@]}"; do
+        if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q '^install ok installed$'; then
+            missing+=("$package")
+        fi
+    done
+
+    if ((${#missing[@]} == 0)); then
+        echo '    system packages already installed'
+        return
+    fi
+
+    sudo apt-get update
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+}
+
+install_rustup() {
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+        sh -s -- -y --profile minimal --default-toolchain stable
+}
+
+run_step 'Installing system packages' install_system_packages
+
+if ! command -v rustup >/dev/null 2>&1; then
+    run_step 'Installing rustup and stable Rust' install_rustup
+fi
+
+# rustup updates this file, but Bash login shells prefer .bash_profile over .profile.
+cargo_profile_marker='# display-fs Rust toolchain'
+if ! grep -Fqx "$cargo_profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+    cat >>"$HOME/.bash_profile" <<'EOF'
+
+# display-fs Rust toolchain
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+EOF
+fi
+
+# shellcheck disable=SC1091
+if [[ -f "$HOME/.cargo/env" ]]; then
+    source "$HOME/.cargo/env"
+fi
+export PATH="$HOME/.cargo/bin:$PATH"
+
+if ! rustup toolchain list | grep -q '^stable-'; then
+    run_step 'Installing stable Rust' rustup toolchain install stable --profile minimal
+fi
+run_step 'Selecting stable Rust' rustup default stable
+run_step 'Installing Rust developer components' rustup component add --toolchain stable clippy rustfmt
+
+if ! command -v just >/dev/null 2>&1; then
+    run_step 'Installing just task runner' cargo install just --locked
+fi
+
+run_step 'Fetching locked Cargo dependencies' cargo fetch --locked
+
+if [[ "${AMP_ORB:-}" == '1' ]] && command -v amp >/dev/null 2>&1; then
+    run_step 'Ensuring supervised orb services' amp orb services ensure
+fi
+
+echo 'Orb setup complete.'
