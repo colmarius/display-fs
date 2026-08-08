@@ -27,6 +27,18 @@ just docs-serve
 
 In an Amp orb, `.agents/setup` installs the Rust development environment and starts the site through the supervised service declared in `.amp/services.yaml`. Run `amp orb services ensure` to reconcile it and print its portal URL.
 
+## Agent Workflow
+
+This repository uses [dot-agents](https://dot-agents.dev/) for reusable skills and durable work context. Project-specific instructions live in `AGENTS.md`; durable work items live under `.agents/work/`, while reusable research remains under `.agents/research/`.
+
+```bash
+# Preview upstream workflow updates
+.agents/scripts/sync.sh --diff
+
+# Sync the latest workflow from the configured main ref
+.agents/scripts/sync.sh
+```
+
 ## Hardware
 
 | Specification | 0.96 inch                          | 3.5 inch                          |
@@ -247,7 +259,12 @@ display-fs/
 │   └── services.yaml      # Supervised static-site portal for Amp orbs
 ├── .agents/
 │   ├── setup              # Fresh-orb toolchain and dependency setup
-│   └── resume             # Fast orb wake-up checks
+│   ├── resume             # Fast orb wake-up checks
+│   ├── work/              # Durable agent work items
+│   ├── research/          # Reusable research notes
+│   ├── references/        # Local reference checkouts (gitignored)
+│   ├── scripts/           # dot-agents sync helpers
+│   └── skills/            # Reusable agent workflows
 ├── .github/                # GitHub Actions workflows
 │   └── workflows/          # GitHub Pages deploy workflow
 ├── site/                   # Static GitHub Pages site
