@@ -2,7 +2,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use display_fs::{
     calculate_auto_fit_size, calculate_max_chars_per_line, create_text_image, find_display_port,
     get_now_playing, image_to_rgb565_bytes, open_connection, send_image_to_display,
-    split_into_pages, DisplayConfig, DisplayModel, NowPlaying, Orientation, MIN_FONT_SIZE,
+    split_into_pages, DisplayConfig, DisplayModel, NowPlaying, Orientation, PortInfo,
+    MIN_FONT_SIZE,
 };
 use serialport::SerialPort;
 use std::process::{Command, ExitCode};
@@ -63,8 +64,8 @@ impl OrientationArg {
 
 #[derive(clap::Args, Clone)]
 struct DisplayOptions {
-    /// Font size in pixels
-    #[arg(short = 's', long, default_value = "14")]
+    /// Font size in pixels (must be positive)
+    #[arg(short = 's', long, default_value = "14", value_parser = validate_positive_f32)]
     font_size: f32,
 
     /// Auto-fit text to largest readable size
@@ -98,6 +99,11 @@ struct DisplayOptions {
     /// Override baud rate (advanced)
     #[arg(long)]
     baud_rate: Option<u32>,
+
+    /// Use a specific serial port instead of USB auto-detection
+    /// (model defaults to small unless --model is given)
+    #[arg(short = 'p', long, value_name = "PATH")]
+    port: Option<String>,
 }
 
 impl DisplayOptions {
@@ -167,6 +173,7 @@ enum PresetName {
     /// Current time (HH:MM:SS)
     Clock,
     /// Current date and time
+    #[value(name = "datetime")]
     DateTime,
     /// System uptime
     Uptime,
@@ -268,7 +275,7 @@ fn validate_positive_f32(s: &str) -> Result<f32, String> {
         .parse()
         .map_err(|_| format!("'{}' is not a valid number", s))?;
     if value <= 0.0 {
-        Err("delay must be a positive number".to_string())
+        Err("must be a positive number".to_string())
     } else {
         Ok(value)
     }
@@ -306,7 +313,12 @@ fn list_presets() -> ExitCode {
 
     for preset in ALL_PRESETS {
         let (desc, _) = preset.info();
-        let name = format!("{:?}", preset).to_lowercase();
+        // Use clap's value name so the listing always matches what `preset <NAME>` accepts.
+        let name = preset
+            .to_possible_value()
+            .expect("preset variants are never skipped")
+            .get_name()
+            .to_string();
         println!("  {:12} - {}", name, desc);
     }
 
@@ -385,18 +397,34 @@ fn run_demo(display: DisplayOptions) -> ExitCode {
 /// Find the display, apply CLI overrides, and open the serial connection.
 /// Prints progress and errors; returns None when no usable display is available.
 fn connect(display: &DisplayOptions) -> Option<(DisplayConfig, Box<dyn SerialPort>)> {
-    let mut port_info = match find_display_port() {
-        Some(p) => p,
-        None => {
-            println!("✗ Display FS V1 not found");
-            println!("  Make sure the display is connected via USB-C");
-            println!("  and the CH340/CH341 driver is installed.");
-            return None;
+    let mut port_info = match &display.port {
+        Some(path) => {
+            let model = display
+                .model
+                .map_or(DisplayModel::Small, DisplayModelArg::to_model);
+            PortInfo {
+                name: path.clone(),
+                vid: 0,
+                pid: 0,
+                model,
+                baud_rate: model.config().baud_rate,
+                product: None,
+                manufacturer: None,
+            }
         }
+        None => match find_display_port() {
+            Some(p) => p,
+            None => {
+                println!("✗ Display FS V1 not found");
+                println!("  Make sure the display is connected via USB-C");
+                println!("  and the CH340/CH341 driver is installed.");
+                return None;
+            }
+        },
     };
 
     let display_config = display.override_config(port_info.model.config());
-    println!("✓ Found display on {}", port_info.name);
+    println!("✓ Using display on {}", port_info.name);
     println!(
         "Opening connection to {} at {} baud...",
         port_info.name, display_config.baud_rate

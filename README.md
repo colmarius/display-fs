@@ -147,7 +147,7 @@ Arguments:
   [TEXT]  Text to display [default: "Hello World!"]
 
 Options:
-  -s, --font-size <SIZE>        Font size in pixels [default: 14]
+  -s, --font-size <SIZE>        Font size in pixels, must be positive [default: 14]
   -a, --auto                    Auto-fit text to largest readable size
   -o, --orientation <MODE>      Display orientation: landscape or portrait [default: landscape]
       --flip                    Flip the display 180° (use if the screen is upside down)
@@ -156,6 +156,8 @@ Options:
       --detect                  Only check if display is connected
       --model <MODEL>           Force display model: small or large
       --baud-rate <BAUD>        Override baud rate (advanced)
+  -p, --port <PATH>             Use a specific serial port instead of USB auto-detection
+                                (model defaults to small unless --model is given)
   -h, --help                    Print help
 ```
 

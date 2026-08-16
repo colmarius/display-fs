@@ -158,6 +158,10 @@ amp orb services ensure
 
 Use `--orientation` to pick landscape or portrait and `--flip` to rotate output 180° (useful for upside-down installs).
 
+### Serial Port Override
+
+Use `--port <PATH>` to bypass USB VID/PID auto-detection (unlisted adapters, or virtual ports like a `socat` pty pair for hardware-free end-to-end testing). The model defaults to small unless `--model` is given.
+
 ## Git Workflow
 
 Use plain git commands for version control.
