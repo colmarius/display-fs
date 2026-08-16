@@ -47,11 +47,11 @@ install-jp: build-jp
 
 # Run with text
 run text="Hello World!":
-    cargo run -- "{{text}}"
+    cargo run -- show "{{text}}"
 
 # Detect display
 detect:
-    cargo run -- --detect
+    cargo run -- show --detect
 
 # Open docs site in browser
 docs-open:

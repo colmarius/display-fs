@@ -16,18 +16,10 @@ pub enum ProtocolError {
     SendFailed(#[from] std::io::Error),
 }
 
-pub fn create_bitmap_header() -> [u8; 10] {
-    create_bitmap_header_oriented(Orientation::default())
-}
-
-/// Physical display dimensions (always 80x160 portrait)
-const PHYSICAL_WIDTH: u16 = 80;
-const PHYSICAL_HEIGHT: u16 = 160;
-
-fn create_bitmap_header_for_display_oriented(
-    config: DisplayConfig,
-    _orientation: Orientation,
-) -> [u8; 10] {
+/// Bitmap command covering the full physical screen of the given display.
+/// Rotation is handled in the image data, so the header always uses
+/// physical (portrait) dimensions.
+fn create_bitmap_header(config: DisplayConfig) -> [u8; 10] {
     let x0: u16 = 0;
     let y0: u16 = 0;
     let x1: u16 = config.width - 1;
@@ -47,35 +39,19 @@ fn create_bitmap_header_for_display_oriented(
     ]
 }
 
-pub fn create_bitmap_header_oriented(_orientation: Orientation) -> [u8; 10] {
-    // Always use physical dimensions - rotation is handled in image data
-    let x0: u16 = 0;
-    let y0: u16 = 0;
-    let x1: u16 = PHYSICAL_WIDTH - 1;
-    let y1: u16 = PHYSICAL_HEIGHT - 1;
-
-    [
-        CMD_SET_BITMAP,
-        (x0 & 0xFF) as u8,
-        (x0 >> 8) as u8,
-        (y0 & 0xFF) as u8,
-        (y0 >> 8) as u8,
-        (x1 & 0xFF) as u8,
-        (x1 >> 8) as u8,
-        (y1 & 0xFF) as u8,
-        (y1 >> 8) as u8,
-        CMD_END,
-    ]
+/// Orientation command to initialize display orientation.
+/// Flip variants are handled in image data rotation to avoid device quirks.
+fn create_orientation_command(orientation: Orientation) -> [u8; 3] {
+    // Orientation values: 0=portrait, 1=landscape
+    let orientation_value = match orientation {
+        Orientation::Portrait | Orientation::PortraitFlip => 0,
+        Orientation::Landscape | Orientation::LandscapeFlip => 1,
+    };
+    [CMD_SET_ORIENTATION, orientation_value, CMD_END]
 }
 
+/// Send a full-screen RGB565 frame to the display.
 pub fn send_image_to_display(
-    port: &mut Box<dyn SerialPort>,
-    image_data: &[u8],
-) -> Result<(), ProtocolError> {
-    send_image_to_display_oriented(port, image_data, Orientation::default())
-}
-
-pub fn send_image_to_display_for_model(
     port: &mut Box<dyn SerialPort>,
     config: DisplayConfig,
     image_data: &[u8],
@@ -89,7 +65,7 @@ pub fn send_image_to_display_for_model(
     port.flush()?;
     sleep(Duration::from_millis(50));
 
-    let header = create_bitmap_header_for_display_oriented(config, orientation);
+    let header = create_bitmap_header(config);
     port.write_all(&header)?;
     port.flush()?;
 
@@ -104,84 +80,39 @@ pub fn send_image_to_display_for_model(
     Ok(())
 }
 
-/// Create orientation command to initialize display orientation
-fn create_orientation_command(orientation: Orientation) -> [u8; 3] {
-    // Orientation values: 0=portrait, 1=landscape
-    // Flip variants are handled in image data rotation to avoid device quirks.
-    let orientation_value = match orientation {
-        Orientation::Portrait => 0,
-        Orientation::Landscape => 1,
-        Orientation::PortraitFlip => 0,
-        Orientation::LandscapeFlip => 1,
-    };
-    [CMD_SET_ORIENTATION, orientation_value, CMD_END]
-}
-
-pub fn send_image_to_display_oriented(
-    port: &mut Box<dyn SerialPort>,
-    image_data: &[u8],
-    orientation: Orientation,
-) -> Result<(), ProtocolError> {
-    port.clear(serialport::ClearBuffer::All)
-        .map_err(|e| ProtocolError::SendFailed(std::io::Error::other(e)))?;
-
-    // Send orientation command first
-    let orient_cmd = create_orientation_command(orientation);
-    port.write_all(&orient_cmd)?;
-    port.flush()?;
-    sleep(Duration::from_millis(50));
-
-    let header = create_bitmap_header_oriented(orientation);
-    port.write_all(&header)?;
-    port.flush()?;
-
-    let chunk_size = PHYSICAL_WIDTH as usize * 4;
-    for chunk in image_data.chunks(chunk_size) {
-        port.write_all(chunk)?;
-    }
-
-    port.flush()?;
-    sleep(Duration::from_millis(100));
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::port::DisplayModel;
+
+    fn small_config() -> DisplayConfig {
+        DisplayModel::Small.config()
+    }
 
     #[test]
     fn test_bitmap_header_structure() {
-        let header = create_bitmap_header();
-        // Header should be 10 bytes
+        let header = create_bitmap_header(small_config());
         assert_eq!(header.len(), 10);
-        // First byte is CMD_SET_BITMAP (0x05)
         assert_eq!(header[0], CMD_SET_BITMAP);
-        // Last byte is CMD_END (0x0A)
         assert_eq!(header[9], CMD_END);
     }
 
     #[test]
-    fn test_bitmap_header_always_physical_dimensions() {
-        // Both orientations use physical 80x160 dimensions
-        for orientation in [
-            Orientation::Landscape,
-            Orientation::Portrait,
-            Orientation::LandscapeFlip,
-            Orientation::PortraitFlip,
-        ] {
-            let header = create_bitmap_header_oriented(orientation);
-            // x0 = 0, y0 = 0
-            assert_eq!(header[1], 0x00); // x0 low
-            assert_eq!(header[2], 0x00); // x0 high
-            assert_eq!(header[3], 0x00); // y0 low
-            assert_eq!(header[4], 0x00); // y0 high
-                                         // Physical: x1 = 79, y1 = 159
-            assert_eq!(header[5], 0x4F); // x1 low (79 = 0x4F)
-            assert_eq!(header[6], 0x00); // x1 high
-            assert_eq!(header[7], 0x9F); // y1 low (159 = 0x9F)
-            assert_eq!(header[8], 0x00); // y1 high
-        }
+    fn test_bitmap_header_small_display_dimensions() {
+        let header = create_bitmap_header(small_config());
+        // x0 = 0, y0 = 0
+        assert_eq!(&header[1..5], &[0x00, 0x00, 0x00, 0x00]);
+        // Physical: x1 = 79 (0x4F), y1 = 159 (0x9F)
+        assert_eq!(&header[5..9], &[0x4F, 0x00, 0x9F, 0x00]);
+    }
+
+    #[test]
+    fn test_bitmap_header_large_display_dimensions() {
+        let header = create_bitmap_header(DisplayModel::Large.config());
+        assert_eq!(header[5], 0x3F); // x1 low (319)
+        assert_eq!(header[6], 0x01); // x1 high
+        assert_eq!(header[7], 0xDF); // y1 low (479)
+        assert_eq!(header[8], 0x01); // y1 high
     }
 
     #[test]
@@ -196,27 +127,5 @@ mod tests {
         assert_eq!(create_orientation_command(Orientation::Landscape)[1], 1);
         assert_eq!(create_orientation_command(Orientation::PortraitFlip)[1], 0);
         assert_eq!(create_orientation_command(Orientation::LandscapeFlip)[1], 1);
-    }
-
-    #[test]
-    fn test_chunk_size_physical() {
-        // Always uses physical width: 80 * 4 = 320
-        assert_eq!(PHYSICAL_WIDTH as usize * 4, 320);
-    }
-
-    #[test]
-    fn test_bitmap_header_for_display_dimensions() {
-        let config = DisplayConfig {
-            model: crate::port::DisplayModel::Large,
-            width: 320,
-            height: 480,
-            baud_rate: 1_152_000,
-        };
-
-        let header = create_bitmap_header_for_display_oriented(config, Orientation::Portrait);
-        assert_eq!(header[5], 0x3F); // x1 low (319)
-        assert_eq!(header[6], 0x01); // x1 high
-        assert_eq!(header[7], 0xDF); // y1 low (479)
-        assert_eq!(header[8], 0x01); // y1 high
     }
 }

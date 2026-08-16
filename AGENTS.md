@@ -136,8 +136,8 @@ cargo build              # Debug build
 cargo build --release    # Release build
 
 # Run
-cargo run -- "Hello World!"
-cargo run -- --detect
+cargo run -- show "Hello World!"
+cargo run -- show --detect
 
 # Quality checks
 cargo fmt

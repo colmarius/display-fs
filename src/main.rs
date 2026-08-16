@@ -1,18 +1,17 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use display_fs::{
-    calculate_auto_fit_size_for_display, calculate_max_chars_per_line_for_display,
-    create_text_image_for_display, find_display_port, get_now_playing,
-    image_to_rgb565_bytes_for_display, is_display_connected, open_connection,
-    send_image_to_display_for_model, split_into_pages_for_display, DisplayConfig, DisplayModel,
-    Orientation, MIN_FONT_SIZE,
+    calculate_auto_fit_size, calculate_max_chars_per_line, create_text_image, find_display_port,
+    get_now_playing, image_to_rgb565_bytes, open_connection, send_image_to_display,
+    split_into_pages, DisplayConfig, DisplayModel, NowPlaying, Orientation, MIN_FONT_SIZE,
 };
+use serialport::SerialPort;
 use std::process::{Command, ExitCode};
 use std::thread;
 use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "display-fs")]
-#[command(about = "Display text on WeAct Studio Display FS V1 (0.96 inch)")]
+#[command(about = "Display text on WeAct Studio Display FS V1 (0.96 inch + 3.5 inch)")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -36,7 +35,7 @@ enum Commands {
         #[command(flatten)]
         display: DisplayOptions,
     },
-    /// Display text on the screen (default command)
+    /// Display text on the screen
     Show(ShowArgs),
     /// Show currently playing Spotify track
     Spotify(SpotifyArgs),
@@ -354,29 +353,9 @@ fn run_demo(display: DisplayOptions) -> ExitCode {
         delay, orientation
     );
 
-    let port_info = match find_display_port() {
-        Some(p) => p,
-        None => {
-            println!("✗ Display FS V1 not found");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let display_config = display.override_config(port_info.model.config());
-    println!("✓ Found display on {}", port_info.name);
-    println!(
-        "Opening connection to {} at {} baud...",
-        port_info.name, display_config.baud_rate
-    );
-
-    let mut port_info = port_info;
-    port_info.baud_rate = display_config.baud_rate;
-    let mut connection = match open_connection(&port_info) {
-        Ok(c) => c,
-        Err(e) => {
-            println!("✗ Failed to open connection: {}", e);
-            return ExitCode::FAILURE;
-        }
+    let (display_config, mut connection) = match connect(&display) {
+        Some(c) => c,
+        None => return ExitCode::FAILURE,
     };
 
     let delay_duration = Duration::from_secs_f32(delay);
@@ -387,39 +366,14 @@ fn run_demo(display: DisplayOptions) -> ExitCode {
             let text = preset.run_command();
             println!("[{}] {}", desc, text);
 
-            let font_size = if display.auto {
-                let size = calculate_auto_fit_size_for_display(
-                    &text,
-                    orientation,
-                    display_config.width as u32,
-                    display_config.height as u32,
-                );
-                println!("Auto-fit font size: {:.1}", size);
-                size
-            } else {
-                display.font_size
-            };
-            let img = create_text_image_for_display(
-                &text,
-                font_size,
-                orientation,
-                display_config.width as u32,
-                display_config.height as u32,
-            );
-            let image_data = image_to_rgb565_bytes_for_display(
-                &img,
-                orientation,
-                display_config.width as u32,
-                display_config.height as u32,
-            );
-
-            if let Err(e) = send_image_to_display_for_model(
+            let font_size = resolve_font_size(&display, &text, orientation, display_config);
+            if !render_and_send(
                 &mut connection,
                 display_config,
-                &image_data,
                 orientation,
+                &text,
+                font_size,
             ) {
-                println!("✗ Failed to send image: {}", e);
                 return ExitCode::FAILURE;
             }
 
@@ -428,88 +382,109 @@ fn run_demo(display: DisplayOptions) -> ExitCode {
     }
 }
 
-fn run_spotify(args: SpotifyArgs) -> ExitCode {
-    let orientation = args.display.orientation();
-
-    let port_info = match find_display_port() {
+/// Find the display, apply CLI overrides, and open the serial connection.
+/// Prints progress and errors; returns None when no usable display is available.
+fn connect(display: &DisplayOptions) -> Option<(DisplayConfig, Box<dyn SerialPort>)> {
+    let mut port_info = match find_display_port() {
         Some(p) => p,
         None => {
             println!("✗ Display FS V1 not found");
-            return ExitCode::FAILURE;
+            println!("  Make sure the display is connected via USB-C");
+            println!("  and the CH340/CH341 driver is installed.");
+            return None;
         }
     };
 
-    let display_config = args.display.override_config(port_info.model.config());
+    let display_config = display.override_config(port_info.model.config());
     println!("✓ Found display on {}", port_info.name);
     println!(
         "Opening connection to {} at {} baud...",
         port_info.name, display_config.baud_rate
     );
 
-    let mut port_info = port_info;
     port_info.baud_rate = display_config.baud_rate;
-    let mut connection = match open_connection(&port_info) {
-        Ok(c) => c,
+    match open_connection(&port_info) {
+        Ok(connection) => Some((display_config, connection)),
         Err(e) => {
             println!("✗ Failed to open connection: {}", e);
-            return ExitCode::FAILURE;
+            None
         }
+    }
+}
+
+/// Auto-fit the font size when --auto is set, else use the configured size.
+fn resolve_font_size(
+    display: &DisplayOptions,
+    text: &str,
+    orientation: Orientation,
+    config: DisplayConfig,
+) -> f32 {
+    if !display.auto {
+        return display.font_size;
+    }
+
+    let size =
+        calculate_auto_fit_size(text, orientation, config.width as u32, config.height as u32);
+    println!("Auto-fit font size: {:.1}", size);
+    size
+}
+
+/// Render text and send the frame; prints the error and returns false on failure.
+fn render_and_send(
+    connection: &mut Box<dyn SerialPort>,
+    config: DisplayConfig,
+    orientation: Orientation,
+    text: &str,
+    font_size: f32,
+) -> bool {
+    let (width, height) = (config.width as u32, config.height as u32);
+    let img = create_text_image(text, font_size, orientation, width, height);
+    let image_data = image_to_rgb565_bytes(&img, orientation, width, height);
+
+    match send_image_to_display(connection, config, &image_data, orientation) {
+        Ok(()) => true,
+        Err(e) => {
+            println!("✗ Failed to send image: {}", e);
+            false
+        }
+    }
+}
+
+fn run_spotify(args: SpotifyArgs) -> ExitCode {
+    let orientation = args.display.orientation();
+
+    let (display_config, mut connection) = match connect(&args.display) {
+        Some(c) => c,
+        None => return ExitCode::FAILURE,
     };
 
-    let mut last_track: Option<(String, String)> = None;
+    // None = nothing shown yet; Some(None) = "Spotify not running" shown.
+    let mut last_shown: Option<Option<NowPlaying>> = None;
     let interval = Duration::from_secs_f32(args.display.effective_delay());
 
     loop {
         let now_playing = get_now_playing();
-        let current = now_playing
-            .as_ref()
-            .map(|np| (np.track.clone(), np.artist.clone()));
-        let should_update = current != last_track;
 
-        if should_update {
+        if last_shown.as_ref() != Some(&now_playing) {
             let max_line_len = spotify_max_line_len(&args.display, orientation, display_config);
-            let text = match now_playing {
+            let text = match &now_playing {
                 Some(np) => format_spotify_text(&np.track, &np.artist, np.is_playing, max_line_len),
                 None => "Spotify not running".to_string(),
             };
-            let font_size = if args.display.auto {
-                let size = calculate_auto_fit_size_for_display(
-                    &text,
-                    orientation,
-                    display_config.width as u32,
-                    display_config.height as u32,
-                );
-                println!("Auto-fit font size: {:.1}", size);
-                size
-            } else {
-                args.display.font_size
-            };
-            let img = create_text_image_for_display(
-                &text,
-                font_size,
-                orientation,
-                display_config.width as u32,
-                display_config.height as u32,
-            );
-            let image_data = image_to_rgb565_bytes_for_display(
-                &img,
-                orientation,
-                display_config.width as u32,
-                display_config.height as u32,
-            );
+            let font_size = resolve_font_size(&args.display, &text, orientation, display_config);
 
-            if let Err(e) = send_image_to_display_for_model(
+            if !render_and_send(
                 &mut connection,
                 display_config,
-                &image_data,
                 orientation,
+                &text,
+                font_size,
             ) {
-                println!("✗ Failed to send image: {}", e);
                 return ExitCode::FAILURE;
             }
 
             println!("{}", text.replace('\n', " "));
-            last_track = current;
+            last_shown = Some(now_playing);
         }
 
         if !args.display.r#loop {
@@ -527,17 +502,14 @@ fn spotify_max_line_len(
     orientation: Orientation,
     config: DisplayConfig,
 ) -> usize {
-    if display.auto {
-        return calculate_max_chars_per_line_for_display(
-            MIN_FONT_SIZE,
-            orientation,
-            config.width as u32,
-            config.height as u32,
-        );
-    }
+    let font_size = if display.auto {
+        MIN_FONT_SIZE
+    } else {
+        display.font_size
+    };
 
-    calculate_max_chars_per_line_for_display(
-        display.font_size,
+    calculate_max_chars_per_line(
+        font_size,
         orientation,
         config.width as u32,
         config.height as u32,
@@ -578,19 +550,20 @@ fn trim_to_width(text: &str, max_len: usize) -> String {
 fn detect_display() -> ExitCode {
     println!("Looking for Display FS V1...");
 
-    if is_display_connected() {
-        if let Some(port) = find_display_port() {
+    match find_display_port() {
+        Some(port) => {
             println!("✓ Found display on {}", port.name);
             println!("  VID: {:04X}, PID: {:04X}", port.vid, port.pid);
             println!("  Model: {:?}", port.model);
-            return ExitCode::SUCCESS;
+            ExitCode::SUCCESS
+        }
+        None => {
+            println!("✗ Display FS V1 not found");
+            println!("  Make sure the display is connected via USB-C");
+            println!("  and the CH340/CH341 driver is installed.");
+            ExitCode::FAILURE
         }
     }
-
-    println!("✗ Display FS V1 not found");
-    println!("  Make sure the display is connected via USB-C");
-    println!("  and the CH340/CH341 driver is installed.");
-    ExitCode::FAILURE
 }
 
 fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
@@ -600,33 +573,14 @@ fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
 
     println!("Looking for Display FS V1...");
 
-    let port_info = match find_display_port() {
-        Some(p) => p,
-        None => {
-            println!("✗ Display FS V1 not found");
-            println!("  Make sure the display is connected via USB-C");
-            println!("  and the CH340/CH341 driver is installed.");
-            return ExitCode::FAILURE;
-        }
+    let (display_config, mut connection) = match connect(display) {
+        Some(c) => c,
+        None => return ExitCode::FAILURE,
     };
 
-    let display_config = display.override_config(port_info.model.config());
-    let font_size = if display.auto {
-        let size = calculate_auto_fit_size_for_display(
-            text,
-            orientation,
-            display_config.width as u32,
-            display_config.height as u32,
-        );
-        println!("Auto-fit font size: {:.1}", size);
-        size
-    } else {
-        display.font_size
-    };
+    let font_size = resolve_font_size(display, text, orientation, display_config);
 
-    println!("✓ Found display on {}", port_info.name);
-
-    let pages = split_into_pages_for_display(
+    let pages = split_into_pages(
         text,
         font_size,
         orientation,
@@ -647,21 +601,6 @@ fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
         page_count, font_size, orientation
     );
 
-    println!(
-        "Opening connection to {} at {} baud...",
-        port_info.name, display_config.baud_rate
-    );
-    let mut port_info = port_info;
-    port_info.baud_rate = display_config.baud_rate;
-    let mut connection = match open_connection(&port_info) {
-        Ok(c) => c,
-        Err(e) => {
-            println!("✗ Failed to open connection: {}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    println!("✓ Connection opened");
-
     let delay_duration = Duration::from_secs_f32(delay);
 
     loop {
@@ -670,37 +609,20 @@ fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
                 println!("Displaying page {}/{}...", i + 1, page_count);
             }
 
-            let img = create_text_image_for_display(
-                page,
-                font_size,
-                orientation,
-                display_config.width as u32,
-                display_config.height as u32,
-            );
-            let image_data = image_to_rgb565_bytes_for_display(
-                &img,
-                orientation,
-                display_config.width as u32,
-                display_config.height as u32,
-            );
-
-            match send_image_to_display_for_model(
+            if !render_and_send(
                 &mut connection,
                 display_config,
-                &image_data,
                 orientation,
+                page,
+                font_size,
             ) {
-                Ok(()) => {
-                    if page_count == 1 && !loop_mode {
-                        println!("✓ Image sent successfully!");
-                        println!();
-                        println!("'{}' should now be displayed!", text);
-                    }
-                }
-                Err(e) => {
-                    println!("✗ Failed to send image: {}", e);
-                    return ExitCode::FAILURE;
-                }
+                return ExitCode::FAILURE;
+            }
+
+            if page_count == 1 && !loop_mode {
+                println!("✓ Image sent successfully!");
+                println!();
+                println!("'{}' should now be displayed!", text);
             }
 
             if needs_delay {

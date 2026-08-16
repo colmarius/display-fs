@@ -94,10 +94,6 @@ pub fn find_display_port() -> Option<PortInfo> {
     None
 }
 
-pub fn is_display_connected() -> bool {
-    find_display_port().is_some()
-}
-
 pub fn open_connection(port: &PortInfo) -> Result<Box<dyn SerialPort>, PortError> {
     let connection = serialport::new(&port.name, port.baud_rate)
         .timeout(Duration::from_millis(TIMEOUT_MS))
@@ -134,57 +130,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_list_ports_returns_vec() {
-        let ports = list_ports();
-        // Verify it's a valid Vec by checking it doesn't panic
-        let _ = ports.len();
-    }
-
-    #[test]
-    fn test_find_display_port_returns_option() {
-        let result = find_display_port();
-        // Result is Option<PortInfo> - either Some or None
-        match result {
-            Some(port) => {
-                assert!(!port.name.is_empty());
-                assert!(port.vid > 0);
-                assert!(port.pid > 0);
-            }
-            None => {
-                // Display not connected - this is valid
-            }
-        }
-    }
-
-    #[test]
-    fn test_is_display_connected_returns_bool() {
-        let result = is_display_connected();
-        // Just verify it returns a bool without panicking
-        assert!(result == true || result == false);
-    }
-
-    #[test]
     fn test_vid_pid_constants_defined() {
         // Verify CH340, CH341, and WeAct VID/PIDs are defined
         assert!(DISPLAY_FS_VID_PID.contains(&(0x1A86, 0x7523))); // CH340
         assert!(DISPLAY_FS_VID_PID.contains(&(0x1A86, 0x5523))); // CH341
         assert!(DISPLAY_FS_VID_PID.contains(&(0x1A86, 0xFE0C))); // WeAct
-    }
-
-    #[test]
-    fn test_port_info_struct() {
-        let port = PortInfo {
-            name: "COM3".to_string(),
-            vid: 0x1A86,
-            pid: 0x7523,
-            model: DisplayModel::Small,
-            baud_rate: DISPLAY_FS_BAUD_SMALL,
-            product: Some("Display FS 0.96 Inch".to_string()),
-            manufacturer: Some("WeAct Studio".to_string()),
-        };
-        assert_eq!(port.name, "COM3");
-        assert_eq!(port.vid, 0x1A86);
-        assert_eq!(port.pid, 0x7523);
     }
 
     #[test]
@@ -207,6 +157,19 @@ mod tests {
         };
         assert_eq!(
             detect_display_model(&usb_info_small),
+            Some(DisplayModel::Small)
+        );
+
+        // CH340 with no product string falls back to the small model.
+        let usb_info_ch340 = serialport::UsbPortInfo {
+            vid: 0x1A86,
+            pid: 0x7523,
+            serial_number: None,
+            manufacturer: None,
+            product: None,
+        };
+        assert_eq!(
+            detect_display_model(&usb_info_ch340),
             Some(DisplayModel::Small)
         );
     }
