@@ -7,13 +7,15 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="hero">
-      <nav class="nav">
+      <nav class="nav" aria-label="Primary">
         <div class="logo">Display FS V1</div>
         <div class="nav-links">
           <a href="https://github.com/colmarius/display-fs">GitHub</a>
           <a href="#getting-started">Get Started</a>
           <a href="#hardware">Hardware</a>
+          <a href="#features">Features</a>
         </div>
       </nav>
       <div class="hero-content">
@@ -27,81 +29,80 @@
           </p>
           <div class="hero-actions">
             <a class="btn primary" href="#getting-started">Get Started</a>
-            <a class="btn ghost" href="https://github.com/colmarius/display-fs/releases">Download</a>
+            <a class="btn ghost" href="#getting-started">Install with Cargo</a>
           </div>
         </div>
-          <div class="hero-card">
-            <div class="screen">
-              <div class="screen-inner">
-                <span>DISPLAY FS</span>
-                <span>READY</span>
-              </div>
+        <div class="hero-card">
+          <div class="screen">
+            <div class="screen-inner">
+              <span>DISPLAY FS</span>
+              <span>READY</span>
             </div>
-            <div class="chip-row">
-              <span>0.96" USB-C</span>
-              <span>3.5" USB CDC</span>
-              <span>RGB565</span>
+          </div>
+          <div class="chip-row">
+            <span>0.96" USB-C</span>
+            <span>3.5" USB CDC</span>
+            <span>RGB565</span>
+          </div>
+          <div class="spec-grid">
+            <div>
+              <p class="label">Resolutions</p>
+              <p class="value">160×80 + 320×480</p>
             </div>
-            <div class="spec-grid">
-              <div>
-                <p class="label">Resolutions</p>
-                <p class="value">160×80 + 320×480</p>
-              </div>
-              <div>
-                <p class="label">Panels</p>
-                <p class="value">0.96" + 3.5" IPS</p>
-              </div>
-              <div>
-                <p class="label">Connection</p>
-                <p class="value">USB-C / USB CDC</p>
-              </div>
-              <div>
-                <p class="label">Protocol</p>
-                <p class="value">USB CDC + RGB565</p>
-              </div>
+            <div>
+              <p class="label">Panels</p>
+              <p class="value">0.96" + 3.5" IPS</p>
+            </div>
+            <div>
+              <p class="label">Connection</p>
+              <p class="value">USB-C / USB CDC</p>
+            </div>
+            <div>
+              <p class="label">Protocol</p>
+              <p class="value">USB CDC + RGB565</p>
             </div>
           </div>
         </div>
       </div>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
       <section class="section" id="getting-started">
         <div class="section-header">
-          <h2>Get started in 30 seconds</h2>
-          <p>Detect the display, push text, flip orientation, and loop updates on either size.</p>
+          <h2>Get started</h2>
+          <p>Install with Cargo, detect the display, and push text to either screen size.</p>
         </div>
         <div class="grid two">
           <div class="card">
-            <h3>Install</h3>
-            <pre><code>brew install just
-just install
-./display-fs show "Hello"</code></pre>
+            <h3>Install with Cargo</h3>
+            <p>Requires Rust. On Linux, install <code>libudev-dev</code> first.</p>
+            <pre><code>cargo install --git https://github.com/colmarius/display-fs
+display-fs show --detect</code></pre>
           </div>
           <div class="card">
             <h3>0.96" quick hits</h3>
-            <pre><code>./display-fs show --auto "Status OK"
-./display-fs show --detect
-./display-fs preset clock --loop</code></pre>
+            <pre><code>display-fs show --auto "Status OK"
+display-fs show --detect
+display-fs preset clock --loop</code></pre>
           </div>
           <div class="card">
             <h3>3.5" examples</h3>
-            <pre><code>./display-fs show --model large \
+            <pre><code>display-fs show --model large \
   --baud-rate 1152000 --auto "Studio"
-./display-fs spotify --model large \
+display-fs spotify --model large \
   --baud-rate 1152000 --loop</code></pre>
           </div>
           <div class="card">
             <h3>Japanese/CJK</h3>
-            <pre><code>just build-jp
-just install-jp
-./display-fs show "東京"</code></pre>
+            <pre><code>cargo install --git https://github.com/colmarius/display-fs \
+  --features japanese --force
+display-fs show "東京"</code></pre>
           </div>
           <div class="card">
             <h3>Orientation + flip</h3>
-            <pre><code>./display-fs show --orientation portrait \
+            <pre><code>display-fs show --orientation portrait \
   --flip "Tall text"
-./display-fs show --model large \
+display-fs show --model large \
   --orientation landscape</code></pre>
           </div>
         </div>

@@ -3,6 +3,7 @@ target/
 
 # Amp orb-generated portal state
 .amp/portals/
+.amp/portal-proxy.mjs
 
 # IDEs
 .idea/

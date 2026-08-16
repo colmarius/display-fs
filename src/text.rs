@@ -1,9 +1,7 @@
-use crate::image::{
-    calculate_max_chars_per_line, calculate_max_lines, measure_text_with_font_size, Orientation,
-};
+use crate::image::{calculate_max_lines, measure_text_with_font_size, Orientation};
 
 /// Split text into pages that fit on the display.
-/// Uses word-aware splitting (never breaks mid-word).
+/// Uses word-aware splitting and only breaks a word when it cannot fit on one line.
 pub fn split_into_pages(
     text: &str,
     font_size: f32,
@@ -49,9 +47,6 @@ fn wrap_text(
     }
 
     let (max_width, _) = orientation.dimensions(physical_width, physical_height);
-    let max_chars =
-        calculate_max_chars_per_line(font_size, orientation, physical_width, physical_height);
-
     let mut result = Vec::new();
 
     for paragraph in text.split('\n') {
@@ -69,8 +64,8 @@ fn wrap_text(
                 if fits_in_width(word, font_size, max_width) {
                     current_line = word.to_string();
                 } else {
-                    // Word too long, truncate it
-                    result.push(truncate_to_fit(word, font_size, max_chars, max_width));
+                    // Preserve oversized words by splitting them across lines.
+                    result.extend(split_word_to_fit(word, font_size, max_width));
                 }
             } else {
                 // Try adding word to current line
@@ -83,7 +78,7 @@ fn wrap_text(
                     if fits_in_width(word, font_size, max_width) {
                         current_line = word.to_string();
                     } else {
-                        result.push(truncate_to_fit(word, font_size, max_chars, max_width));
+                        result.extend(split_word_to_fit(word, font_size, max_width));
                         current_line = String::new();
                     }
                 }
@@ -104,16 +99,36 @@ fn fits_in_width(text: &str, font_size: f32, max_width: u32) -> bool {
     width <= max_width
 }
 
-/// Truncate a word to fit within the given pixel width.
-/// Starts from the estimated character limit and drops characters until it fits.
-fn truncate_to_fit(word: &str, font_size: f32, max_chars: usize, max_width: u32) -> String {
-    let mut result: String = word.chars().take(max_chars.max(1)).collect();
+/// Split an oversized word into the longest chunks that fit the display width.
+/// A glyph wider than the display is kept on its own line rather than discarded.
+fn split_word_to_fit(word: &str, font_size: f32, max_width: u32) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut current = String::new();
 
-    while !result.is_empty() && !fits_in_width(&result, font_size, max_width) {
-        result.pop();
+    for character in word.chars() {
+        let mut candidate = current.clone();
+        candidate.push(character);
+
+        if fits_in_width(&candidate, font_size, max_width) {
+            current = candidate;
+        } else {
+            if !current.is_empty() {
+                chunks.push(current);
+            }
+
+            current = character.to_string();
+            if !fits_in_width(&current, font_size, max_width) {
+                chunks.push(current);
+                current = String::new();
+            }
+        }
     }
 
-    result
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+
+    chunks
 }
 
 #[cfg(test)]
@@ -189,11 +204,17 @@ mod tests {
 
     #[test]
     fn test_long_wide_glyph_word_terminates() {
-        // Regression: a long word of wide glyphs used to hang truncate_to_fit,
-        // because it truncated to a fixed length that still exceeded the width.
+        // Regression: a long word of wide glyphs used to hang while truncating.
         let word = "W".repeat(60);
         let pages = pages(&word, 14.0);
         assert!(!pages.is_empty());
+
+        let displayed: String = pages
+            .iter()
+            .flat_map(|page| page.chars())
+            .filter(|character| *character != '\n')
+            .collect();
+        assert_eq!(displayed, word, "Long words must not lose characters");
 
         // Every produced line must actually fit the display width.
         let (max_width, _) = LANDSCAPE.dimensions(SMALL_W, SMALL_H);

@@ -55,7 +55,7 @@ detect:
 
 # Open docs site in browser
 docs-open:
-    open site/index.html
+    python3 -c 'from pathlib import Path; import webbrowser; webbrowser.open(Path("site/index.html").resolve().as_uri())'
 
 # Serve docs locally
 docs-serve:

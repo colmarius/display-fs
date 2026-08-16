@@ -64,8 +64,14 @@ impl OrientationArg {
 
 #[derive(clap::Args, Clone)]
 struct DisplayOptions {
-    /// Font size in pixels (must be positive)
-    #[arg(short = 's', long, default_value = "14", value_parser = validate_positive_f32)]
+    /// Font size in pixels (must be finite and positive)
+    #[arg(
+        short = 's',
+        long,
+        default_value = "14",
+        value_parser = validate_positive_f32,
+        allow_hyphen_values = true
+    )]
     font_size: f32,
 
     /// Auto-fit text to largest readable size
@@ -80,8 +86,14 @@ struct DisplayOptions {
     #[arg(long)]
     flip: bool,
 
-    /// Delay between pages/updates in seconds (must be positive)
-    #[arg(short, long, default_value = "2.0", value_parser = validate_positive_f32)]
+    /// Delay between pages/updates in seconds (must be finite and positive)
+    #[arg(
+        short,
+        long,
+        default_value = "2.0",
+        value_parser = validate_positive_f32,
+        allow_hyphen_values = true
+    )]
     delay: f32,
 
     /// Loop display continuously (until Ctrl+C)
@@ -274,8 +286,8 @@ fn validate_positive_f32(s: &str) -> Result<f32, String> {
     let value: f32 = s
         .parse()
         .map_err(|_| format!("'{}' is not a valid number", s))?;
-    if value <= 0.0 {
-        Err("must be a positive number".to_string())
+    if !value.is_finite() || value <= 0.0 {
+        Err("value must be a finite positive number".to_string())
     } else {
         Ok(value)
     }
@@ -667,4 +679,31 @@ fn display_text(text: &str, display: &DisplayOptions) -> ExitCode {
     }
 
     ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn positive_float_parser_rejects_non_finite_and_non_positive_values() {
+        for value in ["0", "-1", "NaN", "inf", "-inf"] {
+            assert!(
+                validate_positive_f32(value).is_err(),
+                "{value} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn cli_validates_font_size_and_delay_before_accessing_hardware() {
+        for option in ["--font-size", "--delay"] {
+            for value in ["-1", "NaN", "inf"] {
+                assert!(
+                    Cli::try_parse_from(["display-fs", "show", option, value]).is_err(),
+                    "{option} {value} should be rejected"
+                );
+            }
+        }
+    }
 }

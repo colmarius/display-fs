@@ -118,7 +118,7 @@ just install       # Build and update ./display-fs
 just install-jp    # Build and update ./display-fs with Japanese/CJK support
 just run "Hi"      # Run with custom text
 just detect        # Detect display
-just docs-open     # Open docs site in browser
+just docs-open     # Open docs site with Python's cross-platform browser helper
 just docs-serve    # Serve docs at http://localhost:8000
 ```
 
@@ -127,6 +127,7 @@ just docs-serve    # Serve docs at http://localhost:8000
 ```bash
 # Install Rust (if not installed)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
 
 # Linux (Ubuntu/Debian): install libudev for serial port support
 sudo apt-get update && sudo apt-get install -y libudev-dev
@@ -134,6 +135,7 @@ sudo apt-get update && sudo apt-get install -y libudev-dev
 # Build
 cargo build              # Debug build
 cargo build --release    # Release build
+cargo install --path .   # Install display-fs into Cargo's binary directory
 
 # Run
 cargo run -- show "Hello World!"
